@@ -1,45 +1,22 @@
-import { useState } from 'react'
-import { Heart, X, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+
+const FAV_KEY = 'musa_favorites'
+const getFavIds = (): string[] => { try { return JSON.parse(localStorage.getItem(FAV_KEY) ?? '[]') } catch { return [] } }
+const saveFavIds = (ids: string[]) => localStorage.setItem(FAV_KEY, JSON.stringify(ids))
+import { motion } from 'framer-motion'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  FavouriteIcon,
+  Share01Icon,
+  ArrowLeft01Icon,
+  ShoppingBasket01Icon,
+  MinusSignIcon,
+  PlusSignIcon,
+  StarIcon,
+  DeliveryBox01Icon,
+  Location01Icon,
+} from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
-
-interface CrossSellItem {
-  id: string
-  title: string
-  price: number
-  oldPrice?: number
-  discount?: string
-  imageSrc: string
-}
-
-const CROSS_SELL: CrossSellItem[] = [
-  {
-    id: 'cs1',
-    title: 'Голубика свежая, 125 г',
-    price: 450,
-    imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/c33c2bb3-3ba3-4e0c-bd42-69e8058a9c05.jpg',
-  },
-  {
-    id: 'cs2',
-    title: 'Малина отборная, 125 г',
-    price: 510,
-    oldPrice: 600,
-    discount: '-15%',
-    imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/43b69940-d927-4898-aa67-00f3cf8c3f1e.jpg',
-  },
-  {
-    id: 'cs3',
-    title: 'Кешью жареный, 100 г',
-    price: 320,
-    imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/90c8b519-8cf6-4f9e-ab9f-3a171609e0bf.jpg',
-  },
-]
-
-const NUTRITION = [
-  { value: '41', label: 'ккал' },
-  { value: '0.8', label: 'белки' },
-  { value: '0.4', label: 'жиры' },
-  { value: '7.5', label: 'углеводы' },
-]
 
 interface ProductPageProps {
   product: Product
@@ -47,197 +24,237 @@ interface ProductPageProps {
   onAddToCart: (id: string) => void
 }
 
-export default function ProductPage({ product, onClose, onAddToCart }: ProductPageProps) {
-  const [isFavorite, setIsFavorite] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const [nutritionPer, setNutritionPer] = useState<'100g' | 'serving'>('100g')
-  const [activeVariant, setActiveVariant] = useState(0)
+const NUTRITION = [
+  { value: '41 ккал', label: 'Калории' },
+  { value: '0.4 г',   label: 'Жиры' },
+  { value: '2.4 г',   label: 'Клетчатка' },
+  { value: 'Спелый',  label: 'Зрелость' },
+]
 
-  const variants = [product.weight, product.weight === '250 г' ? '500 г' : '1 кг']
-  const description =
-    'Сладкая и ароматная клубника, бережно собранная на фермерских хозяйствах. Идеально подходит для десертов, смузи или просто в качестве лёгкого и полезного перекуса. Выращена без применения химических удобрений.'
-  const shortDesc = description.slice(0, 90) + '...'
+export default function ProductPage({ product, onClose, onAddToCart }: ProductPageProps) {
+  const [isFavorite, setIsFavorite] = useState(() => getFavIds().includes(product.id))
+  const [qty, setQty] = useState(1)
+
+  useEffect(() => {
+    setIsFavorite(getFavIds().includes(product.id))
+  }, [product.id])
+
+  const toggleFavorite = () => {
+    const ids = getFavIds()
+    const next = ids.includes(product.id) ? ids.filter(i => i !== product.id) : [...ids, product.id]
+    saveFavIds(next)
+    setIsFavorite(!isFavorite)
+  }
+
+  const increment = () => setQty(q => q + 1)
+  const decrement = () => setQty(q => Math.max(1, q - 1))
 
   return (
-    <div className="flex flex-col min-h-screen pb-[120px] bg-background">
+    <div className="flex flex-col min-h-screen bg-background pb-[110px]">
 
-      {/* 1. Gallery */}
-      <section className="relative bg-muted rounded-b-[24px] pb-5 mb-6">
-        {/* Action buttons */}
-        <div className="absolute top-4 right-4 flex gap-2 z-10">
-          <button
-            onClick={() => setIsFavorite((v) => !v)}
-            className="w-9 h-9 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] flex items-center justify-center"
-            aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
-          >
-            <Heart
-              size={20}
-              className={isFavorite ? 'fill-destructive-foreground text-destructive-foreground' : 'text-foreground'}
-            />
-          </button>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] flex items-center justify-center"
-            aria-label="Закрыть"
-          >
-            <X size={20} className="text-foreground" />
-          </button>
-        </div>
+      {/* Top bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex items-center justify-between px-5 pt-6 pb-4"
+      >
+        <motion.button
+          onClick={onClose}
+          className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"
+          whileTap={{ scale: 0.88 }}
+          aria-label="Назад"
+        >
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color="#09090b" />
+        </motion.button>
+        <h1 className="text-lg font-bold text-foreground tracking-tighter">Товар</h1>
+        <motion.button
+          className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"
+          whileTap={{ scale: 0.88 }}
+          aria-label="Поделиться"
+        >
+          <HugeiconsIcon icon={Share01Icon} size={18} color="#09090b" />
+        </motion.button>
+      </motion.div>
 
-        {/* Main image */}
-        <div className="w-full aspect-square flex items-center justify-center p-6">
-          <img
-            src={product.imageSrc}
-            alt={product.title}
-            className="w-full h-full object-contain mix-blend-multiply"
+      <div className="px-5 flex flex-col gap-4">
+
+        {/* Hero card */}
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+          className="rounded-[28px] p-5 flex flex-col gap-4 relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #09090b 0%, #27272a 100%)' }}
+        >
+          <div
+            className="absolute w-44 h-44 rounded-full pointer-events-none"
+            style={{ right: -52, top: -60, background: 'radial-gradient(circle, rgba(255,255,255,0.10) 0%, transparent 72%)' }}
           />
-        </div>
 
-        {/* Dots */}
-        <div className="flex justify-center gap-1.5 mt-2">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-foreground' : 'bg-[#d1d1d6]'}`}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* 2. Title + description */}
-      <section className="px-4 pb-6">
-        <div className="mb-3">
-          <h1 className="text-2xl font-bold text-foreground inline leading-tight">{product.title}</h1>
-          <span className="text-xl font-medium text-muted-foreground ml-1.5 inline">{product.weight}</span>
-        </div>
-        <p className="text-[15px] leading-snug text-muted-foreground">
-          {expanded ? description : shortDesc}
-          {!expanded && (
-            <button
-              onClick={() => setExpanded(true)}
-              className="text-foreground font-medium ml-1"
+          <div className="flex items-start justify-between gap-3 relative z-10">
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.72)' }}>Сегодня утром собрано</p>
+              <h2 className="text-2xl font-bold text-white tracking-tighter max-w-[180px] leading-tight">{product.title}</h2>
+              <p className="text-[14px] font-medium mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>{product.weight}</p>
+            </div>
+            <motion.button
+              onClick={toggleFavorite}
+              className="w-12 h-12 rounded-[16px] flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(255,255,255,0.10)' }}
+              whileTap={{ scale: 0.88 }}
+              aria-label="В избранное"
             >
-              Развернуть
-            </button>
-          )}
-        </p>
-      </section>
-
-      {/* 3. Variants */}
-      <section className="pb-6">
-        <div className="flex gap-3 px-4 overflow-x-auto scrollbar-none">
-          {variants.map((label, i) => (
-            <button
-              key={label}
-              onClick={() => setActiveVariant(i)}
-              className="flex flex-col items-center gap-2 w-[72px] shrink-0"
-            >
-              <div
-                className={`w-[72px] h-[72px] rounded-lg bg-muted p-2 flex items-center justify-center border-2 transition-colors ${
-                  activeVariant === i ? 'border-foreground' : 'border-transparent'
-                }`}
-              >
-                <img
-                  src={product.imageSrc}
-                  alt={label}
-                  className="w-full h-full object-contain mix-blend-multiply"
-                />
-              </div>
-              <span
-                className={`text-xs text-center w-full truncate ${
-                  activeVariant === i ? 'text-foreground font-medium' : 'text-muted-foreground'
-                }`}
-              >
-                {label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* 4. Nutrition */}
-      <section className="px-4 pb-8">
-        <div className="bg-muted rounded-[24px] px-5 py-4">
-          <div className="flex items-center gap-1.5 text-sm mb-4">
-            <button
-              onClick={() => setNutritionPer('100g')}
-              className={nutritionPer === '100g' ? 'text-foreground font-semibold' : 'text-muted-foreground'}
-            >
-              На 100 г
-            </button>
-            <span className="text-muted-foreground">·</span>
-            <button
-              onClick={() => setNutritionPer('serving')}
-              className={nutritionPer === 'serving' ? 'text-foreground font-semibold' : 'text-muted-foreground'}
-            >
-              На порцию
-            </button>
+              <HugeiconsIcon
+                icon={FavouriteIcon}
+                size={20}
+                color={isFavorite ? '#f87171' : 'rgba(255,255,255,0.80)'}
+              />
+            </motion.button>
           </div>
-          <div className="flex justify-between">
-            {NUTRITION.map((n) => (
-              <div key={n.label} className="flex flex-col">
-                <span className="text-xl font-semibold text-foreground">{n.value}</span>
-                <span className="text-xs text-muted-foreground mt-0.5">{n.label}</span>
+
+          <div
+            className="w-full h-[188px] rounded-2xl flex items-center justify-center relative z-10 overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.08)' }}
+          >
+            <img src={product.imageSrc} alt={product.title} className="w-full h-full object-cover" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 relative z-10">
+            {[
+              { icon: StarIcon,        value: '4.9',         label: 'Рейтинг' },
+              { icon: DeliveryBox01Icon, value: product.weight, label: 'Фасовка' },
+              { icon: Location01Icon,  value: 'Ферма',       label: 'Происхождение' },
+            ].map(({ icon, value, label }) => (
+              <div key={label} className="rounded-2xl py-3 px-2 text-center" style={{ background: 'rgba(255,255,255,0.10)' }}>
+                <HugeiconsIcon icon={icon} size={14} color="rgba(255,255,255,0.72)" className="mx-auto mb-1" />
+                <p className="text-[13px] font-bold text-white leading-tight">{value}</p>
+                <p className="text-[11px] font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{label}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </motion.section>
 
-      {/* 5. Cross-sell */}
-      <section className="pb-8">
-        <h2 className="text-xl font-bold text-foreground mb-4 px-4">Может, ещё кое-что?</h2>
-        <div className="flex gap-3 px-4 overflow-x-auto scrollbar-none">
-          {CROSS_SELL.map((item) => (
-            <div key={item.id} className="w-[130px] shrink-0 flex flex-col">
-              <div className="w-[130px] h-[130px] bg-muted rounded-lg mb-2.5 relative p-4 flex items-center justify-center">
-                {item.discount && (
-                  <span className="absolute top-2 left-2 bg-destructive-foreground text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md">
-                    {item.discount}
-                  </span>
-                )}
-                <img
-                  src={item.imageSrc}
-                  alt={item.title}
-                  className="w-full h-full object-contain mix-blend-multiply"
-                  loading="lazy"
-                />
-                <button
-                  onClick={() => onAddToCart(item.id)}
-                  aria-label={`Добавить ${item.title} в корзину`}
-                  className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.08)] flex items-center justify-center"
-                >
-                  <Plus size={18} className="text-foreground" />
-                </button>
-              </div>
-              <div className="flex items-baseline gap-1.5 mb-1">
-                <span className="text-base font-bold text-destructive-foreground">{item.price} ₽</span>
-                {item.oldPrice && (
-                  <span className="text-xs text-muted-foreground line-through">{item.oldPrice} ₽</span>
-                )}
-              </div>
-              <span className="text-[13px] leading-snug text-foreground line-clamp-2">{item.title}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 6. Fixed bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-border px-4 pt-4 pb-8 flex items-center justify-between z-50">
-        <div className="flex flex-col">
-          <span className="text-2xl font-bold text-destructive-foreground leading-none">
-            {product.oldPrice ? product.price : product.price} ₽
-          </span>
-          {product.oldPrice && (
-            <span className="text-sm text-muted-foreground line-through mt-0.5">{product.oldPrice} ₽</span>
-          )}
-        </div>
-        <button
-          onClick={() => onAddToCart(product.id)}
-          className="flex-1 ml-6 h-[52px] rounded-full bg-primary text-primary-foreground text-base font-semibold flex items-center justify-center"
+        {/* Info card */}
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.12 }}
+          className="rounded-[28px] p-5 bg-muted flex flex-col gap-4"
         >
-          В корзину
-        </button>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[22px] font-bold text-foreground tracking-tighter leading-tight">{product.title}</h3>
+              <p className="text-[14px] font-medium text-muted-foreground mt-1">{product.weight} · свежие</p>
+            </div>
+            <div className="bg-card rounded-[16px] px-4 py-2.5 shrink-0">
+              <p className="text-[18px] font-bold leading-none" style={{ color: '#2e8b57' }}>{product.price} ₽</p>
+              {product.oldPrice && (
+                <p className="text-[12px] line-through text-muted-foreground mt-0.5 text-center">{product.oldPrice} ₽</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="text-[12px] font-bold px-3 py-1.5 rounded-full" style={{ background: 'rgba(46,139,87,0.12)', color: '#2e8b57' }}>
+              Бестселлер
+            </span>
+            <span className="text-[12px] font-bold px-3 py-1.5 rounded-full bg-card text-foreground">Витамин C</span>
+            <span className="text-[12px] font-bold px-3 py-1.5 rounded-full bg-card text-foreground">Органик</span>
+          </div>
+
+          <p className="text-[14px] leading-relaxed text-muted-foreground">
+            Свежие продукты с фермерских хозяйств, выращенные без применения химических удобрений. Идеально подходят для здорового питания, смузи и приготовления вкусных блюд.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            {NUTRITION.map((n) => (
+              <div key={n.label} className="bg-card rounded-[16px] px-4 py-3 flex flex-col gap-0.5">
+                <p className="text-[15px] font-bold text-foreground">{n.value}</p>
+                <p className="text-[12px] font-medium text-muted-foreground">{n.label}</p>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+
+        {/* Recipe suggestion card */}
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.18 }}
+          whileTap={{ scale: 0.97 }}
+          className="w-full rounded-[28px] p-5 flex items-center justify-between gap-4 text-left"
+          style={{ background: 'linear-gradient(135deg, #0b7a43 0%, #2e8b57 100%)' }}
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.72)' }}>Идеи для приготовления</p>
+            <h3 className="text-[19px] font-bold text-white tracking-tighter mb-2">Рецепты с этим товаром</h3>
+            <p className="text-[14px] font-medium" style={{ color: 'rgba(255,255,255,0.80)' }}>Смузи, салаты и горячие блюда</p>
+          </div>
+          <div className="shrink-0 rounded-[18px] px-4 py-2.5 text-sm font-bold text-white" style={{ background: 'rgba(255,255,255,0.14)' }}>
+            2 рецепта
+          </div>
+        </motion.button>
+
+        {/* Cart panel */}
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.22 }}
+          className="rounded-[28px] p-5 bg-muted flex flex-col gap-4"
+        >
+          <div>
+            <h2 className="text-[22px] font-bold text-foreground tracking-tighter">В корзину</h2>
+            <p className="text-[15px] font-medium text-muted-foreground mt-1">Выберите количество товара</p>
+          </div>
+
+          <div className="bg-card rounded-[20px] px-4 py-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <HugeiconsIcon icon={ShoppingBasket01Icon} size={20} color="#2e8b57" />
+              <p className="text-[15px] font-bold text-foreground">Количество</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-full bg-muted px-1 py-1">
+              <motion.button
+                onClick={decrement}
+                className="w-8 h-8 rounded-full bg-card flex items-center justify-center"
+                whileTap={{ scale: 0.82 }}
+                aria-label="Уменьшить"
+              >
+                <HugeiconsIcon icon={MinusSignIcon} size={14} color="#09090b" strokeWidth={2.5} />
+              </motion.button>
+              <span className="min-w-[22px] text-center text-[15px] font-bold text-foreground">{qty}</span>
+              <motion.button
+                onClick={increment}
+                className="w-8 h-8 rounded-full bg-card flex items-center justify-center"
+                whileTap={{ scale: 0.82 }}
+                aria-label="Увеличить"
+              >
+                <HugeiconsIcon icon={PlusSignIcon} size={14} color="#09090b" strokeWidth={2.5} />
+              </motion.button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-[15px] font-medium text-muted-foreground">Цена за штуку</span>
+            <span className="text-[15px] font-bold text-foreground">{product.price} ₽</span>
+          </div>
+          <div className="flex items-center justify-between pt-1 border-t border-muted-foreground/10">
+            <span className="text-[15px] font-bold text-foreground">Выбрано {qty} шт.</span>
+            <span className="text-[15px] font-bold" style={{ color: '#2e8b57' }}>{product.price * qty} ₽</span>
+          </div>
+
+          <motion.button
+            onClick={() => onAddToCart(product.id)}
+            whileTap={{ scale: 0.97 }}
+            className="h-14 rounded-[20px] bg-foreground flex items-center justify-between px-5 w-full"
+          >
+            <span className="text-base font-bold text-white">Добавить в корзину</span>
+            <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold text-white leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>
+              {product.price * qty} ₽
+            </span>
+          </motion.button>
+        </motion.section>
+
       </div>
     </div>
   )

@@ -1,33 +1,52 @@
+import { motion } from 'framer-motion'
+
 interface PromoBannerProps {
+  tag?: string
   title: string
-  subtitle: string
   imageSrc: string
   imageAlt?: string
   onClick?: () => void
 }
 
-export default function PromoBanner({ title, subtitle, imageSrc, imageAlt = '', onClick }: PromoBannerProps) {
+export default function PromoBanner({ tag = 'Выходные скидки', title, imageSrc, imageAlt = '', onClick }: PromoBannerProps) {
   return (
-    <section className="px-4 pb-7">
-      <button
-        onClick={onClick}
-        className="w-full text-left rounded-lg overflow-hidden relative min-h-[120px] flex items-center p-5"
-        style={{ background: 'linear-gradient(135deg, #ffe8d6, #e3f2fd)' }}
-        aria-label={`${title} — ${subtitle}`}
-      >
-        <div className="relative z-10 max-w-[65%]">
-          <h2
-            className="text-lg font-bold text-foreground leading-tight mb-1.5"
-            dangerouslySetInnerHTML={{ __html: title.replace('\n', '<br/>') }}
-          />
-          <p className="text-[13px] font-medium text-[#555555]">{subtitle}</p>
-        </div>
-        <img
-          src={imageSrc}
-          alt={imageAlt}
-          className="absolute right-[-10px] bottom-[-15px] w-[140px] h-[140px] object-cover z-0"
+    <motion.button
+      onClick={onClick}
+      className="w-full relative rounded-xl overflow-hidden h-[140px] text-left"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+      whileTap={{ scale: 0.98 }}
+      aria-label={title}
+    >
+      {/* Background image */}
+      <img
+        src={imageSrc}
+        alt={imageAlt}
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+
+      {/* Dark gradient overlay */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(to right, rgba(9,9,11,0.92) 0%, rgba(9,9,11,0.45) 65%, transparent 100%)',
+        }}
+      />
+
+      {/* Text */}
+      <div className="absolute inset-0 flex flex-col justify-center px-6">
+        <span
+          className="text-[11px] font-bold uppercase tracking-widest text-white mb-2 px-2 py-1 rounded-lg w-fit"
+          style={{ background: 'rgba(255,255,255,0.18)' }}
+        >
+          {tag}
+        </span>
+        <h3
+          className="text-xl font-bold text-white leading-tight"
+          dangerouslySetInnerHTML={{ __html: title.replace('\n', '<br/>') }}
         />
-      </button>
-    </section>
+      </div>
+    </motion.button>
   )
 }

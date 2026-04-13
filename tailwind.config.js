@@ -4,39 +4,46 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
       },
       colors: {
-        background: '#f7f7f8',
-        foreground: '#1f2937',
-        primary: {
-          DEFAULT: '#2ea84a',
-          foreground: '#ffffff',
+        background:  '#f4f4f5',
+        foreground:  '#09090b',
+        card: {
+          DEFAULT:    '#ffffff',
+          foreground: '#09090b',
         },
         muted: {
-          DEFAULT: '#f3f4f6',
-          foreground: '#9ca3af',
+          DEFAULT:    '#f1f5f9',
+          foreground: '#71717a',
         },
-        card: {
-          DEFAULT: '#ffffff',
-          foreground: '#111827',
-        },
-        border: '#00000014',
-        destructive: {
-          DEFAULT: '#fee2e2',
-          foreground: '#991b1b',
+        primary: {
+          DEFAULT:    '#2e8b57',
+          foreground: '#ffffff',
         },
         accent: {
-          DEFAULT: '#ffd166',
-          foreground: '#3c2f00',
+          DEFAULT:    '#f59e0b',
+          foreground: '#111827',
+        },
+        border: 'rgba(0,0,0,0.08)',
+        destructive: {
+          DEFAULT:    '#ef4444',
+          foreground: '#ffffff',
         },
       },
       borderRadius: {
-        sm: '6px',
-        md: '8px',
-        lg: '12px',
-        xl: '20px',
-        full: '9999px',
+        sm:    '8px',
+        md:    '12px',
+        lg:    '16px',
+        xl:    '24px',
+        '2xl': '32px',
+        full:  '9999px',
+      },
+      boxShadow: {
+        card:  '0 4px 24px rgba(0,0,0,0.04)',
+        'card-md': '0 8px 32px rgba(0,0,0,0.08)',
+        nav:   '0 16px 32px rgba(9,9,11,0.25)',
+        btn:   '0 4px 12px rgba(0,0,0,0.15)',
       },
     },
   },
