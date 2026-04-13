@@ -10,6 +10,7 @@ export interface Product {
   oldPrice?: number
   discount?: string
   imageSrc: string
+  images?: string[]
   category?: string
   inStock?: boolean
 }

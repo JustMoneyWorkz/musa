@@ -6,7 +6,7 @@ const saveFavIds = (ids: string[]) => localStorage.setItem(FAV_KEY, JSON.stringi
 import { motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  FavouriteIcon,
+  Bookmark02Icon,
   Share01Icon,
   ArrowLeft01Icon,
   ShoppingBasket01Icon,
@@ -34,6 +34,8 @@ const NUTRITION = [
 export default function ProductPage({ product, onClose, onAddToCart }: ProductPageProps) {
   const [isFavorite, setIsFavorite] = useState(() => getFavIds().includes(product.id))
   const [qty, setQty] = useState(1)
+  const images = product.images?.length ? product.images : [product.imageSrc]
+  const [imgIndex, setImgIndex] = useState(0)
 
   useEffect(() => {
     setIsFavorite(getFavIds().includes(product.id))
@@ -102,22 +104,48 @@ export default function ProductPage({ product, onClose, onAddToCart }: ProductPa
               onClick={toggleFavorite}
               className="w-12 h-12 rounded-[16px] flex items-center justify-center shrink-0"
               style={{ background: 'rgba(255,255,255,0.10)' }}
-              whileTap={{ scale: 0.88 }}
+              whileTap={{ scale: 0.84 }}
               aria-label="В избранное"
             >
-              <HugeiconsIcon
-                icon={FavouriteIcon}
-                size={20}
-                color={isFavorite ? '#f87171' : 'rgba(255,255,255,0.80)'}
-              />
+              <motion.div
+                animate={{ scale: isFavorite ? [1, 1.28, 1] : 1 }}
+                transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+              >
+                <HugeiconsIcon
+                  icon={Bookmark02Icon}
+                  size={20}
+                  color={isFavorite ? '#f06b6b' : 'rgba(255,255,255,0.80)'}
+                  strokeWidth={isFavorite ? 0 : 1.8}
+                  style={{ fill: isFavorite ? '#f06b6b' : 'none', transition: 'fill 0.22s ease, color 0.22s ease' }}
+                />
+              </motion.div>
             </motion.button>
           </div>
 
           <div
-            className="w-full h-[188px] rounded-2xl flex items-center justify-center relative z-10 overflow-hidden"
+            className="w-full h-[188px] rounded-2xl relative z-10 overflow-hidden"
             style={{ background: 'rgba(255,255,255,0.08)' }}
           >
-            <img src={product.imageSrc} alt={product.title} className="w-full h-full object-cover" />
+            <motion.div
+              className="flex h-full"
+              style={{ width: `${images.length * 100}%` }}
+              animate={{ x: `-${(imgIndex / images.length) * 100}%` }}
+              transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.18}
+              onDragEnd={(_, info) => {
+                const threshold = 40
+                if (info.offset.x < -threshold && imgIndex < images.length - 1) setImgIndex(i => i + 1)
+                else if (info.offset.x > threshold && imgIndex > 0) setImgIndex(i => i - 1)
+              }}
+            >
+              {images.map((src, i) => (
+                <div key={i} className="h-full flex-shrink-0" style={{ width: `${100 / images.length}%` }}>
+                  <img src={src} alt={`${product.title} ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
+                </div>
+              ))}
+            </motion.div>
           </div>
 
           <div className="grid grid-cols-3 gap-2 relative z-10">
@@ -177,25 +205,6 @@ export default function ProductPage({ product, onClose, onAddToCart }: ProductPa
           </div>
         </motion.section>
 
-        {/* Recipe suggestion card */}
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.18 }}
-          whileTap={{ scale: 0.97 }}
-          className="w-full rounded-[28px] p-5 flex items-center justify-between gap-4 text-left"
-          style={{ background: 'linear-gradient(135deg, #0b7a43 0%, #2e8b57 100%)' }}
-        >
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.72)' }}>Идеи для приготовления</p>
-            <h3 className="text-[19px] font-bold text-white tracking-tighter mb-2">Рецепты с этим товаром</h3>
-            <p className="text-[14px] font-medium" style={{ color: 'rgba(255,255,255,0.80)' }}>Смузи, салаты и горячие блюда</p>
-          </div>
-          <div className="shrink-0 rounded-[18px] px-4 py-2.5 text-sm font-bold text-white" style={{ background: 'rgba(255,255,255,0.14)' }}>
-            2 рецепта
-          </div>
-        </motion.button>
-
         {/* Cart panel */}
         <motion.section
           initial={{ opacity: 0, y: 10 }}
@@ -244,7 +253,7 @@ export default function ProductPage({ product, onClose, onAddToCart }: ProductPa
           </div>
 
           <motion.button
-            onClick={() => onAddToCart(product.id)}
+            onClick={() => { for (let i = 0; i < qty; i++) onAddToCart(product.id) }}
             whileTap={{ scale: 0.97 }}
             className="h-14 rounded-[20px] bg-foreground flex items-center justify-between px-5 w-full"
           >

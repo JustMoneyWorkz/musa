@@ -93,6 +93,7 @@ export default function Header({
               autoFocus
               value={query}
               onChange={(e) => handleChange(e.target.value)}
+              onBlur={closeSearch}
               placeholder="Введите название..."
               className="flex-1 bg-transparent text-[15px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
             />
@@ -120,10 +121,10 @@ export default function Header({
               exit={{ opacity: 0, scale: 0.6 }}
               transition={{ type: 'spring', stiffness: 400, damping: 28 }}
               onClick={closeSearch}
-              className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0"
+              className="w-10 h-10 flex items-center justify-center shrink-0"
               whileTap={{ scale: 0.85 }}
             >
-              <HugeiconsIcon icon={Cancel01Icon} size={16} color="#09090b" />
+              <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9aa3ae" />
             </motion.button>
           ) : showFilter ? (
             <motion.div

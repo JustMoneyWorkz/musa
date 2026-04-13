@@ -10,6 +10,12 @@ import ProductPage from './pages/ProductPage'
 import CartPage from './pages/CartPage'
 import BrowsePage from './pages/BrowsePage'
 import FavoritesPage from './pages/FavoritesPage'
+import OrdersPage from './pages/OrdersPage'
+import AddressesPage from './pages/AddressesPage'
+import PaymentPage from './pages/PaymentPage'
+import SupportPage from './pages/SupportPage'
+
+type ProfileSection = 'orders' | 'addresses' | 'payment' | 'support'
 
 type Tab = 'home' | 'catalog' | 'favorites' | 'profile'
 const TAB_ORDER: Tab[] = ['home', 'catalog', 'favorites', 'profile']
@@ -42,6 +48,11 @@ const PRODUCTS: Product[] = [
     weight: '1 кг · свежая ферма',
     price: 350,
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/70091f2d-3b57-4351-9a7c-349526652aa6.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/70091f2d-3b57-4351-9a7c-349526652aa6.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/b8d8388a-38b0-43f9-bf50-cf6827fd3187.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/42268ce3-42e2-44d2-b62c-94896c6c5c3f.jpg',
+    ],
     category: 'Овощи',
   },
   {
@@ -50,6 +61,11 @@ const PRODUCTS: Product[] = [
     weight: '2 шт',
     price: 350,
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/2145bd06-0a3b-45a0-a013-d0d90f984453.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/2145bd06-0a3b-45a0-a013-d0d90f984453.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/96641d04-bc62-425b-830e-4e58414b982c.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/131fab7b-70d3-4c63-9b92-d252f2fe5e56.jpg',
+    ],
     category: 'Наборы',
   },
   {
@@ -60,6 +76,11 @@ const PRODUCTS: Product[] = [
     oldPrice: 150,
     discount: '-20%',
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/96641d04-bc62-425b-830e-4e58414b982c.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/96641d04-bc62-425b-830e-4e58414b982c.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/70091f2d-3b57-4351-9a7c-349526652aa6.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/b8d8388a-38b0-43f9-bf50-cf6827fd3187.jpg',
+    ],
     category: 'Наборы',
   },
   {
@@ -70,6 +91,11 @@ const PRODUCTS: Product[] = [
     oldPrice: 530,
     discount: '-15%',
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/131fab7b-70d3-4c63-9b92-d252f2fe5e56.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/131fab7b-70d3-4c63-9b92-d252f2fe5e56.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/2145bd06-0a3b-45a0-a013-d0d90f984453.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/42268ce3-42e2-44d2-b62c-94896c6c5c3f.jpg',
+    ],
     category: 'Наборы',
   },
   {
@@ -78,6 +104,11 @@ const PRODUCTS: Product[] = [
     weight: '1 шт · фермерская',
     price: 180,
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/b8d8388a-38b0-43f9-bf50-cf6827fd3187.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/b8d8388a-38b0-43f9-bf50-cf6827fd3187.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/70091f2d-3b57-4351-9a7c-349526652aa6.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/96641d04-bc62-425b-830e-4e58414b982c.jpg',
+    ],
     category: 'Овощи',
   },
   {
@@ -88,6 +119,11 @@ const PRODUCTS: Product[] = [
     oldPrice: 390,
     discount: '-18%',
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/42268ce3-42e2-44d2-b62c-94896c6c5c3f.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/42268ce3-42e2-44d2-b62c-94896c6c5c3f.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/131fab7b-70d3-4c63-9b92-d252f2fe5e56.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/2145bd06-0a3b-45a0-a013-d0d90f984453.jpg',
+    ],
     category: 'Наборы',
   },
   {
@@ -98,6 +134,11 @@ const PRODUCTS: Product[] = [
     oldPrice: 350,
     discount: '-17%',
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/70091f2d-3b57-4351-9a7c-349526652aa6.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/70091f2d-3b57-4351-9a7c-349526652aa6.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/96641d04-bc62-425b-830e-4e58414b982c.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/b8d8388a-38b0-43f9-bf50-cf6827fd3187.jpg',
+    ],
     category: 'Наборы',
   },
   {
@@ -106,6 +147,11 @@ const PRODUCTS: Product[] = [
     weight: '250 г',
     price: 380,
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/2145bd06-0a3b-45a0-a013-d0d90f984453.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/2145bd06-0a3b-45a0-a013-d0d90f984453.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/42268ce3-42e2-44d2-b62c-94896c6c5c3f.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/131fab7b-70d3-4c63-9b92-d252f2fe5e56.jpg',
+    ],
     category: 'Наборы',
     inStock: false,
   },
@@ -115,6 +161,11 @@ const PRODUCTS: Product[] = [
     weight: '150 г',
     price: 320,
     imageSrc: 'https://storage.googleapis.com/banani-generated-images/generated-images/131fab7b-70d3-4c63-9b92-d252f2fe5e56.jpg',
+    images: [
+      'https://storage.googleapis.com/banani-generated-images/generated-images/131fab7b-70d3-4c63-9b92-d252f2fe5e56.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/2145bd06-0a3b-45a0-a013-d0d90f984453.jpg',
+      'https://storage.googleapis.com/banani-generated-images/generated-images/70091f2d-3b57-4351-9a7c-349526652aa6.jpg',
+    ],
     category: 'Наборы',
     inStock: false,
   },
@@ -157,12 +208,16 @@ export default function App() {
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('musa_favorites') ?? '[]') } catch { return [] }
   })
+  const [profileSection, setProfileSection] = useState<ProfileSection | null>(null)
   const prevTabRef = useRef<Tab>('home')
 
   const handleNavigate = (tab: Tab) => {
     prevTabRef.current = activeTab
     if (tab !== 'catalog') setBrowseCategory(undefined)
     setActiveTab(tab)
+    setSelectedProduct(null)
+    setFavoritesOpen(false)
+    setProfileSection(null)
   }
 
   const handleCategoryClick = (categoryTitle: string) => {
@@ -193,6 +248,8 @@ export default function App() {
     if (id === 'favorites') {
       refreshFavorites()
       setFavoritesOpen(true)
+    } else if (id === 'orders' || id === 'addresses' || id === 'payment' || id === 'support') {
+      setProfileSection(id)
     }
   }
 
@@ -274,7 +331,7 @@ export default function App() {
 
   const renderPage = () => {
     switch (activeTab) {
-      case 'catalog':   return <BrowsePage key={browseCategory ?? 'all'} products={PRODUCTS} initialCategory={browseCategory} onAddToCart={handleAddToCart} onProductClick={(p) => setSelectedProduct(p)} />
+      case 'catalog':   return <BrowsePage key={browseCategory ?? 'all'} products={PRODUCTS} initialCategory={browseCategory} onAddToCart={handleAddToCart} onProductClick={(p) => setSelectedProduct(p)} cartQty={cartQty} />
       case 'favorites': return <CartPage items={cartItems} onIncrement={handleAddToCart} onDecrement={handleDecrement} />
       case 'profile':   return <ProfilePage onMenuClick={handleProfileMenuClick} />
       default: return homePage
@@ -342,6 +399,44 @@ export default function App() {
               onClose={() => { setSelectedProduct(null); refreshFavorites() }}
               onAddToCart={(id) => { handleAddToCart(id); setSelectedProduct(null); handleNavigate('favorites') }}
             />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Profile section overlays */}
+      <AnimatePresence>
+        {profileSection === 'orders' && (
+          <motion.div key="orders-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
+            transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
+            className="fixed inset-0 z-50 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity' }}>
+            <OrdersPage onClose={() => setProfileSection(null)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {profileSection === 'addresses' && (
+          <motion.div key="addresses-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
+            transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
+            className="fixed inset-0 z-50 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity' }}>
+            <AddressesPage onClose={() => setProfileSection(null)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {profileSection === 'payment' && (
+          <motion.div key="payment-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
+            transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
+            className="fixed inset-0 z-50 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity' }}>
+            <PaymentPage onClose={() => setProfileSection(null)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {profileSection === 'support' && (
+          <motion.div key="support-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
+            transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
+            className="fixed inset-0 z-50 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity' }}>
+            <SupportPage onClose={() => setProfileSection(null)} />
           </motion.div>
         )}
       </AnimatePresence>

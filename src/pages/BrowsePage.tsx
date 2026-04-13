@@ -15,15 +15,12 @@ import { Product } from '../components/ProductCard'
 const CATEGORIES = ['Все', 'Овощи', 'Наборы']
 const FILTER_CATS = ['Овощи', 'Наборы']
 
-const ADDED_KEY = 'musa_added_items'
-const getAdded = (): string[] => { try { return JSON.parse(localStorage.getItem(ADDED_KEY) ?? '[]') } catch { return [] } }
-const saveAdded = (ids: string[]) => localStorage.setItem(ADDED_KEY, JSON.stringify(ids))
-
 interface BrowsePageProps {
   products: Product[]
   onAddToCart: (id: string) => void
   onProductClick: (product: Product) => void
   initialCategory?: string
+  cartQty?: Record<string, number>
 }
 
 const gridVariants = {
@@ -35,24 +32,16 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
-export default function BrowsePage({ products, onAddToCart, onProductClick, initialCategory }: BrowsePageProps) {
+export default function BrowsePage({ products, onAddToCart, onProductClick, initialCategory, cartQty = {} }: BrowsePageProps) {
   const initialIndex = initialCategory ? Math.max(0, CATEGORIES.indexOf(initialCategory)) : 0
   const [activeCategory, setActiveCategory] = useState(initialIndex)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Filter sheet
-  const [addedIds, setAddedIds] = useState<string[]>(() => getAdded())
-
   const handleAdd = (e: React.MouseEvent, id: string, inStock?: boolean) => {
     e.stopPropagation()
-    if (inStock === false) return
+    if (inStock === false || (cartQty[id] ?? 0) > 0) return
     onAddToCart(id)
-    if (!addedIds.includes(id)) {
-      const next = [...addedIds, id]
-      setAddedIds(next)
-      saveAdded(next)
-    }
   }
 
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -198,6 +187,7 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
                   autoFocus
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onBlur={closeSearch}
                   onClick={(e) => e.stopPropagation()}
                   placeholder="Введите название..."
                   className="flex-1 bg-transparent text-[15px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
@@ -225,10 +215,10 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
                   exit={{ opacity: 0, scale: 0.6 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                   onClick={(e) => { e.stopPropagation(); closeSearch() }}
-                  className="w-9 h-9 rounded-full bg-card flex items-center justify-center shrink-0"
+                  className="w-9 h-9 flex items-center justify-center shrink-0"
                   whileTap={{ scale: 0.85 }}
                 >
-                  <HugeiconsIcon icon={Cancel01Icon} size={15} color="#09090b" />
+                  <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9aa3ae" />
                 </motion.button>
               )}
             </AnimatePresence>
@@ -373,17 +363,17 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
                     </div>
                     <motion.div
                       onClick={(e) => handleAdd(e, product.id, product.inStock)}
-                      className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden${(cartQty[product.id] ?? 0) > 0 ? ' pointer-events-none' : ''}`}
                       animate={{
                         backgroundColor: product.inStock === false
                           ? '#e4e4e7'
-                          : addedIds.includes(product.id) ? '#2e8b57' : '#09090b'
+                          : (cartQty[product.id] ?? 0) > 0 ? '#2e8b57' : '#09090b'
                       }}
                       transition={{ duration: 0.25 }}
                       whileTap={{ scale: 0.85 }}
                     >
                       <AnimatePresence mode="wait" initial={false}>
-                        {addedIds.includes(product.id) ? (
+                        {(cartQty[product.id] ?? 0) > 0 ? (
                           <motion.span
                             key="check"
                             initial={{ scale: 0, rotate: -45, opacity: 0 }}
@@ -430,7 +420,7 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
                 transition={{ duration: 0.22 }}
                 onClick={() => setIsFilterOpen(false)}
                 className="fixed inset-0"
-                style={{ background: 'rgba(9,9,11,0.28)', zIndex: 60 }}
+                style={{ background: 'rgba(9,9,11,0.28)', zIndex: 90 }}
               />
 
             {/* Sheet */}
@@ -441,7 +431,7 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 340, damping: 38 }}
               className="fixed bottom-0 left-0 right-0 bg-background rounded-t-[32px] flex flex-col"
-              style={{ maxHeight: '85vh', boxShadow: '0 -4px 40px rgba(9,9,11,0.12)', zIndex: 70 }}
+              style={{ maxHeight: '85vh', boxShadow: '0 -4px 40px rgba(9,9,11,0.12)', zIndex: 100 }}
             >
               {/* Handle */}
               <div className="flex justify-center pt-3 pb-1 shrink-0">
@@ -549,7 +539,7 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
               </div>
 
               {/* Footer */}
-              <div className="px-5 pt-3 flex gap-3 shrink-0 border-t border-muted" style={{ paddingBottom: 100 }}>
+              <div className="px-5 pt-3 flex gap-3 shrink-0 border-t border-muted" style={{ paddingBottom: 32 }}>
                 <motion.button
                   onClick={resetFilter}
                   className="flex-1 h-14 rounded-[20px] bg-muted text-[15px] font-bold text-foreground"
