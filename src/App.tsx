@@ -340,7 +340,7 @@ export default function App() {
       {/* Header bottom separator */}
       <motion.div
         className="mx-5 h-px"
-        style={{ background: 'linear-gradient(90deg, var(--border) 0%, transparent 100%)', transformOrigin: 'left' }}
+        style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.08) 0%, transparent 100%)', transformOrigin: 'left' }}
         initial={{ opacity: 0, scaleX: 0 }}
         animate={{ opacity: 1, scaleX: 1 }}
         transition={{ duration: 0.5, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
