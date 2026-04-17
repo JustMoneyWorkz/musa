@@ -89,7 +89,7 @@ export default function CheckoutPage({
   const [toast, setToast] = useState<string | null>(null)
   const showToast = (msg: string) => {
     setToast(msg)
-    setTimeout(() => setToast(null), 2800)
+    setTimeout(() => setToast(null), 5000)
   }
 
   // Fetch slots on mount
@@ -152,8 +152,10 @@ export default function CheckoutPage({
       await onSaveAddress({ address: newAddress.trim() })
     }
 
-    // Normalize phone: keep leading + and digits only
-    const normPhone = phone.replace(/[^\d+]/g, '')
+    // Normalize phone: digits only, 8XXX → +7XXX, 7XXX → +7XXX
+    let normPhone = phone.replace(/[^\d+]/g, '')
+    if (/^8\d{10}$/.test(normPhone)) normPhone = '+7' + normPhone.slice(1)
+    else if (/^7\d{10}$/.test(normPhone)) normPhone = '+' + normPhone
     if (!/^\+?\d{10,15}$/.test(normPhone)) {
       showToast('Некорректный номер телефона')
       setSubmitting(false)
@@ -174,6 +176,7 @@ export default function CheckoutPage({
       setOrderId(order.id)
       setConfirmed(true)
     } catch (err) {
+      console.error('[checkout] order failed:', err)
       const msg = err instanceof ApiError ? err.message : 'Ошибка создания заказа'
       showToast(msg)
       setSubmitting(false)

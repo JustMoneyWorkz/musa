@@ -18,21 +18,38 @@ async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `tma ${getInitData()}`,
-      ...(options.headers ?? {}),
-    },
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new ApiError(res.status, body?.error ?? res.statusText)
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 15_000)
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      ...options,
+      signal: ctrl.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `tma ${getInitData()}`,
+        ...(options.headers ?? {}),
+      },
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as any))
+      const msg =
+        body?.error ??
+        (Array.isArray(body?.errors) && body.errors.length > 0
+          ? `${body.errors[0].msg}${body.errors[0].path ? ` (${body.errors[0].path})` : ''}`
+          : res.statusText)
+      throw new ApiError(res.status, msg)
+    }
+    if (res.status === 204) return undefined as unknown as T
+    return res.json()
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError(0, 'Сервер не отвечает (таймаут 15с)')
+    }
+    throw new ApiError(0, err instanceof Error ? err.message : 'Сетевая ошибка')
+  } finally {
+    clearTimeout(timer)
   }
-  // 204 No Content
-  if (res.status === 204) return undefined as unknown as T
-  return res.json()
 }
 
 export class ApiError extends Error {
