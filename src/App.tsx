@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Leaf01Icon, ShoppingBasket03Icon, StarIcon, CustomerService01Icon } from '@hugeicons/core-free-icons'
+import { Leaf01Icon, ShoppingBasket03Icon, StarIcon } from '@hugeicons/core-free-icons'
 import ProductCard, { Product } from './components/ProductCard'
 import BottomNav from './components/BottomNav'
 import ProfilePage from './pages/ProfilePage'
@@ -32,7 +32,7 @@ const TAB_ORDER: Tab[] = ['home', 'catalog', 'favorites', 'profile']
 const HOME_CATEGORIES = [
   {
     title: 'Овощи',
-    subtitle: '120+ товаров',
+    subtitle: 'Вкусные, отборные',
     icon: Leaf01Icon,
     iconColor: '#dcfce7',
     bg: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
@@ -46,6 +46,15 @@ const HOME_CATEGORIES = [
     bg: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
     iconBg: 'rgba(255,255,255,0.18)',
   },
+]
+
+// ─── Home rotating messages ─────────────────────────────────────────────────
+const HOME_MESSAGES: Array<(name?: string) => string> = [
+  (n) => `Новый ассортимент уже в каталоге${n ? `, ${n}` : ''} — успей первым`,
+  (n) => `Свежие овощи прямо с грядки${n ? `, ${n}` : ''} — доставим сегодня`,
+  (n) => `${n ? `${n}, д` : 'Д'}ля тебя: отборные фермерские наборы этой недели`,
+  (n) => `${n ? `${n}, х` : 'Х'}очешь попробовать? Сезонные овощи уже ждут`,
+  (n) => `Пополнение!${n ? ` ${n},` : ''} свежие и вкусные — смотри каталог`,
 ]
 
 // ─── Products ───────────────────────────────────────────────────────────────
@@ -264,9 +273,13 @@ export default function App() {
     .filter((p) => cartQty[p.id])
     .map((p) => ({ product: p, qty: cartQty[p.id] }))
 
-  // ─── Home page ─────────────────────────────────────────────────────────────
-  const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user
-  const homeAvatarSrc: string = tgUser?.photo_url ?? ''
+  // ─── Telegram WebApp init ───────────────────────────────────────────────────
+  const [tgUser, setTgUser] = useState<any>(null)
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp
+    if (tg) { tg.ready(); tg.expand(); setTgUser(tg.initDataUnsafe?.user ?? null) }
+  }, [])
+  const msgIdx = useMemo(() => Math.floor(Math.random() * HOME_MESSAGES.length), [])
 
   const homePage = (
     <div className="flex flex-col min-h-screen pb-[110px]">
@@ -275,7 +288,7 @@ export default function App() {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="flex items-center justify-between px-5 pt-6 pb-2"
+        className="flex items-center px-5 pt-6 pb-2"
       >
         <div className="flex items-center gap-2.5">
           {/* Logo — BlurFade: blur+scale, delay after page loads */}
@@ -312,35 +325,20 @@ export default function App() {
             </h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => (window as unknown as { Telegram?: { WebApp?: { openTelegramLink?: (u: string) => void } } })
-              .Telegram?.WebApp?.openTelegramLink?.('https://t.me/musa_support')}
-            className="w-11 h-11 rounded-full bg-muted flex items-center justify-center"
-            aria-label="Поддержка"
-          >
-            <HugeiconsIcon icon={CustomerService01Icon} size={20} color="#09090b" />
-          </button>
-          {homeAvatarSrc ? (
-            <motion.img
-              src={homeAvatarSrc}
-              alt="Профиль"
-              className="w-11 h-11 rounded-full object-cover"
-              whileTap={{ scale: 0.92 }}
-            />
-          ) : (
-            <motion.div
-              className="w-11 h-11 rounded-full flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' }}
-              whileTap={{ scale: 0.92 }}
-            >
-              <span className="text-white text-base font-bold">М</span>
-            </motion.div>
-          )}
-        </div>
       </motion.div>
 
-      <div className="px-5 flex flex-col gap-6 pt-4">
+      <div className="px-5 flex flex-col gap-6 pt-3">
+
+        {/* Rotating message */}
+        <motion.p
+          key={msgIdx}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+          className="text-[22px] font-bold text-foreground tracking-tighter leading-snug"
+        >
+          {HOME_MESSAGES[msgIdx](tgUser?.username ? `@${tgUser.username}` : undefined)}
+        </motion.p>
 
         {/* Hero card */}
         <motion.div

@@ -38,7 +38,6 @@ const MENU_ITEMS = [
     subtitle: 'Последние и запланированные',
     icon: ShoppingBag01Icon,
     iconBg: 'linear-gradient(135deg, #0d8b56 0%, #0b6e43 100%)',
-    badge: '3 новых',
   },
   {
     id: 'addresses',
