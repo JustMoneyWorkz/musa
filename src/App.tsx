@@ -21,7 +21,7 @@ import { useAddresses } from './hooks/useAddresses'
 import { useOrders } from './hooks/useOrders'
 import { useAdmin } from './hooks/useAdmin'
 import AdminPage from './pages/AdminPage'
-import { Order } from './lib/api'
+import { Order, fetchProductCount } from './lib/api'
 
 type ProfileSection = 'orders' | 'addresses' | 'payment' | 'support'
 
@@ -49,12 +49,14 @@ const HOME_CATEGORIES = [
 ]
 
 // ─── Home rotating messages ─────────────────────────────────────────────────
-const HOME_MESSAGES: Array<(name?: string) => string> = [
-  (n) => `Новый ассортимент уже в каталоге${n ? `, ${n}` : ''} — успей первым`,
-  (n) => `Свежие овощи прямо с грядки${n ? `, ${n}` : ''} — доставим сегодня`,
-  (n) => `${n ? `${n}, д` : 'Д'}ля тебя: отборные фермерские наборы этой недели`,
-  (n) => `${n ? `${n}, х` : 'Х'}очешь попробовать? Сезонные овощи уже ждут`,
-  (n) => `Пополнение!${n ? ` ${n},` : ''} свежие и вкусные — смотри каталог`,
+// Each message: array of {text, accent?} segments
+type MsgPart = { text: string; accent?: boolean }
+const HOME_MESSAGES: Array<(name?: string) => MsgPart[]> = [
+  (n) => [{ text: 'Новый ассортимент — уже в каталоге' }, ...(n ? [{ text: ` ${n}`, accent: true }] : [])],
+  (n) => [...(n ? [{ text: `${n}`, accent: true }, { text: ', с' }] : [{ text: 'С' }]), { text: 'вежие овощи с грядки ждут тебя' }],
+  (n) => [{ text: 'Отборные фермерские наборы' }, ...(n ? [{ text: ' — специально для ' }, { text: n, accent: true }] : [{ text: ' этой недели' }])],
+  (n) => [...(n ? [{ text: `${n}`, accent: true }, { text: ', х' }] : [{ text: 'Х' }]), { text: 'очешь попробовать? Сезонные овощи уже ждут' }],
+  (n) => [{ text: 'Пополнение! Свежие и вкусные' }, ...(n ? [{ text: ' — только для ' }, { text: n, accent: true }] : [])],
 ]
 
 // ─── Products ───────────────────────────────────────────────────────────────
@@ -275,9 +277,13 @@ export default function App() {
 
   // ─── Telegram WebApp init ───────────────────────────────────────────────────
   const [tgUser, setTgUser] = useState<any>(null)
+  const [veggieCount, setVeggieCount] = useState<number | null>(null)
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp
     if (tg) { tg.ready(); tg.expand(); setTgUser(tg.initDataUnsafe?.user ?? null) }
+  }, [])
+  useEffect(() => {
+    fetchProductCount('Овощи').then(setVeggieCount).catch(() => {})
   }, [])
   const msgIdx = useMemo(() => Math.floor(Math.random() * HOME_MESSAGES.length), [])
 
@@ -290,7 +296,7 @@ export default function App() {
         transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="flex items-center px-5 pt-6 pb-2"
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           {/* Logo — BlurFade: blur+scale, delay after page loads */}
           <motion.img
             src="/logo.svg"
@@ -299,6 +305,14 @@ export default function App() {
             initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.78 }}
             animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.5 }}
+          />
+          {/* Divider */}
+          <motion.div
+            className="w-px h-7 rounded-full shrink-0"
+            style={{ background: 'var(--border)' }}
+            initial={{ opacity: 0, scaleY: 0 }}
+            animate={{ opacity: 1, scaleY: 1 }}
+            transition={{ duration: 0.35, delay: 0.55 }}
           />
           <div>
             <motion.p
@@ -330,15 +344,26 @@ export default function App() {
       <div className="px-5 flex flex-col gap-6 pt-3">
 
         {/* Rotating message */}
-        <motion.p
+        <motion.h2
           key={msgIdx}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-          className="text-[22px] font-bold text-foreground tracking-tighter leading-snug"
+          className="text-[21px] font-bold tracking-tighter leading-snug"
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07, delayChildren: 0.25 } } }}
         >
-          {HOME_MESSAGES[msgIdx](tgUser?.username ? `@${tgUser.username}` : undefined)}
-        </motion.p>
+          {HOME_MESSAGES[msgIdx](tgUser?.username ? `@${tgUser.username}` : undefined).map((part, i) => (
+            <motion.span
+              key={i}
+              variants={{
+                hidden: { opacity: 0, y: 8 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } },
+              }}
+              style={part.accent ? { color: '#2e8b57' } : { color: 'var(--foreground)' }}
+            >
+              {part.text}
+            </motion.span>
+          ))}
+        </motion.h2>
 
         {/* Hero card */}
         <motion.div
@@ -377,7 +402,11 @@ export default function App() {
             animate="visible"
             className="grid grid-cols-2 gap-4"
           >
-            {HOME_CATEGORIES.map(({ title, subtitle, icon, iconColor, bg, iconBg }) => (
+            {HOME_CATEGORIES.map(({ title, subtitle, icon, iconColor, bg, iconBg }) => {
+              const displaySubtitle = title === 'Овощи' && veggieCount !== null
+                ? `${veggieCount} товаров`
+                : subtitle
+              return (
               <motion.button
                 key={title}
                 variants={gridItem}
@@ -394,10 +423,11 @@ export default function App() {
                 </div>
                 <div>
                   <h3 className="text-[17px] font-semibold text-white leading-tight">{title}</h3>
-                  <p className="text-[13px] mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>{subtitle}</p>
+                  <p className="text-[13px] mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>{displaySubtitle}</p>
                 </div>
               </motion.button>
-            ))}
+              )
+            })}
           </motion.div>
         </div>
 

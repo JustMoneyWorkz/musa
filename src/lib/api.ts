@@ -285,3 +285,7 @@ export const promoApi = {
       body: JSON.stringify({ code }),
     }),
 }
+
+export const fetchProductCount = (category: string): Promise<number> =>
+  apiFetch<{ id: number }[]>(`/api/products?category=${encodeURIComponent(category)}&limit=200`)
+    .then(r => r.length)
