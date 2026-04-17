@@ -293,7 +293,51 @@ export default function App() {
 
   const homePage = (
     <div className="flex flex-col min-h-screen pb-[110px]">
-      <div className="px-5 flex flex-col gap-6 pt-6">
+      {/* Home header — no search */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="flex items-center px-5 pt-6 pb-2"
+      >
+        <div className="flex items-center gap-2.5">
+          {/* Logo — BlurFade: blur+scale, delay after page loads */}
+          <motion.img
+            src="/logo.svg"
+            alt="СВОЙнабор"
+            className="w-10 h-10 object-contain shrink-0"
+            initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.78 }}
+            animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.5 }}
+          />
+          <div>
+            <motion.p
+              className="text-[12px] font-medium text-muted-foreground leading-none mb-0.5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.62 }}
+            >
+              Добро пожаловать
+            </motion.p>
+            {/* TextRoll — каждая буква вращается по оси X (barrel-roll) */}
+            <h1 className="text-[19px] font-bold text-foreground tracking-tighter leading-none flex" style={{ perspective: 500 }}>
+              {'СВОЙнабор'.split('').map((char, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ rotateX: 90, opacity: 0 }}
+                  animate={{ rotateX: 0, opacity: 1 }}
+                  transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1], delay: 0.55 + i * 0.045 }}
+                  style={{ display: 'inline-block', transformOrigin: '50% 100%' }}
+                >
+                  {char}
+                </motion.span>
+              ))}
+            </h1>
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="px-5 flex flex-col gap-6 pt-3">
 
         {/* Typewriter message */}
         <h2 key={msgKey} className="text-[21px] font-bold tracking-tighter leading-snug">
