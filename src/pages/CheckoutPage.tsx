@@ -87,9 +87,11 @@ export default function CheckoutPage({
 
   // Toast
   const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const showToast = (msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast(msg)
-    setTimeout(() => setToast(null), 5000)
+    toastTimer.current = setTimeout(() => setToast(null), 5000)
   }
 
   // Fetch slots on mount
@@ -133,7 +135,10 @@ export default function CheckoutPage({
   }
 
   const handleSubmit = async () => {
-    if (submitting) return
+    console.log('[checkout] submit clicked', {
+      items: items.length, phone, selectedAddrId, newAddress, payment, slotId,
+    })
+    if (submitting) { console.log('[checkout] already submitting — skip'); return }
 
     // Validation
     if (items.length === 0) { showToast('Корзина пуста'); return }
@@ -143,9 +148,10 @@ export default function CheckoutPage({
       : savedAddresses.find(a => a.id === selectedAddrId)?.address ?? ''
     if (!addrText) { showToast('Введите адрес доставки'); return }
 
-    if (payment === 'transfer') { showToast('Обсудите с менеджером'); return }
+    if (payment === 'transfer') { showToast('Переводом — обсудите с менеджером'); return }
 
     setSubmitting(true)
+    console.log('[checkout] submitting to POST /api/orders')
 
     // Save new address to profile if checked
     if (selectedAddrId === 'new' && saveNewAddr && newAddress.trim()) {
