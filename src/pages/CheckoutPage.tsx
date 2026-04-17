@@ -152,6 +152,14 @@ export default function CheckoutPage({
       await onSaveAddress({ address: newAddress.trim() })
     }
 
+    // Normalize phone: keep leading + and digits only
+    const normPhone = phone.replace(/[^\d+]/g, '')
+    if (!/^\+?\d{10,15}$/.test(normPhone)) {
+      showToast('Некорректный номер телефона')
+      setSubmitting(false)
+      return
+    }
+
     try {
       const order = await ordersApi.create({
         items: items.map(({ product, qty }) => ({
@@ -159,13 +167,12 @@ export default function CheckoutPage({
           quantity: qty,
         })),
         address: addrText,
-        phone: phone.trim(),
+        phone: normPhone,
         delivery_slot_id: slotId ?? undefined,
         promo_code: promoData?.code ?? undefined,
       })
       setOrderId(order.id)
       setConfirmed(true)
-      setTimeout(() => onConfirm(order.id), 2000)
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Ошибка создания заказа'
       showToast(msg)
@@ -176,7 +183,7 @@ export default function CheckoutPage({
   // ── Success screen ──────────────────────────────────────────────────────────
   if (confirmed) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-5 px-8">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-6 px-8">
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -192,11 +199,21 @@ export default function CheckoutPage({
           transition={{ delay: 0.2 }}
           className="text-center"
         >
-          <h2 className="text-[26px] font-bold text-foreground tracking-tighter mb-2">Заявка принята!</h2>
+          <h2 className="text-[26px] font-bold text-foreground tracking-tighter mb-2">Заказ оформлен</h2>
           <p className="text-[15px] font-medium text-muted-foreground">
             {orderId ? `Заказ #${orderId} · ` : ''}Мы свяжемся с вами
           </p>
         </motion.div>
+        <motion.button
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={() => { if (orderId !== null) onConfirm(orderId) }}
+          className="h-14 w-full max-w-[280px] rounded-[20px] bg-foreground text-white text-base font-bold"
+        >
+          На главную
+        </motion.button>
       </div>
     )
   }

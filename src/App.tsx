@@ -592,7 +592,12 @@ export default function App() {
             <CheckoutPage
               items={cartItems}
               onClose={() => setCheckoutOpen(false)}
-              onConfirm={(_orderId) => { setCheckoutOpen(false); clearCart(); refreshOrders() }}
+              onConfirm={(_orderId) => {
+                setCheckoutOpen(false)
+                clearCart()
+                refreshOrders()
+                handleNavigate('home')
+              }}
               savedAddresses={addresses.addresses}
               onSaveAddress={addresses.addAddress}
             />
