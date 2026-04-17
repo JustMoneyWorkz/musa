@@ -286,6 +286,10 @@ export default function App() {
     fetchProductCount('Овощи').then(setVeggieCount).catch(() => {})
   }, [])
   const msgIdx = useMemo(() => Math.floor(Math.random() * HOME_MESSAGES.length), [])
+  const msgName = tgUser?.username ? `@${tgUser.username}` : (tgUser?.first_name || undefined)
+  const msgParts = HOME_MESSAGES[msgIdx](msgName)
+  const msgChars = msgParts.flatMap(p => p.text.split('').map(c => ({ char: c, accent: !!p.accent })))
+  const msgKey = `${msgIdx}-${msgName || ''}`
 
   const homePage = (
     <div className="flex flex-col min-h-screen pb-[110px]">
@@ -296,7 +300,7 @@ export default function App() {
         transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="flex items-center px-5 pt-6 pb-2"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Logo — BlurFade: blur+scale, delay after page loads */}
           <motion.img
             src="/logo.svg"
@@ -305,14 +309,6 @@ export default function App() {
             initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.78 }}
             animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.5 }}
-          />
-          {/* Divider */}
-          <motion.div
-            className="w-px h-7 rounded-full shrink-0"
-            style={{ background: 'var(--border)' }}
-            initial={{ opacity: 0, scaleY: 0 }}
-            animate={{ opacity: 1, scaleY: 1 }}
-            transition={{ duration: 0.35, delay: 0.55 }}
           />
           <div>
             <motion.p
@@ -341,29 +337,31 @@ export default function App() {
         </div>
       </motion.div>
 
+      {/* Header bottom separator */}
+      <motion.div
+        className="mx-5 h-px"
+        style={{ background: 'linear-gradient(90deg, var(--border) 0%, transparent 100%)', transformOrigin: 'left' }}
+        initial={{ opacity: 0, scaleX: 0 }}
+        animate={{ opacity: 1, scaleX: 1 }}
+        transition={{ duration: 0.5, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      />
+
       <div className="px-5 flex flex-col gap-6 pt-3">
 
-        {/* Rotating message */}
-        <motion.h2
-          key={msgIdx}
-          className="text-[21px] font-bold tracking-tighter leading-snug"
-          initial="hidden"
-          animate="visible"
-          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07, delayChildren: 0.25 } } }}
-        >
-          {HOME_MESSAGES[msgIdx](tgUser?.username ? `@${tgUser.username}` : undefined).map((part, i) => (
+        {/* Typewriter message */}
+        <h2 key={msgKey} className="text-[21px] font-bold tracking-tighter leading-snug">
+          {msgChars.map((c, i) => (
             <motion.span
               key={i}
-              variants={{
-                hidden: { opacity: 0, y: 8 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } },
-              }}
-              style={part.accent ? { color: '#2e8b57' } : { color: 'var(--foreground)' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 + i * 0.028, duration: 0.01 }}
+              style={c.accent ? { color: '#2e8b57' } : undefined}
             >
-              {part.text}
+              {c.char}
             </motion.span>
           ))}
-        </motion.h2>
+        </h2>
 
         {/* Hero card */}
         <motion.div
