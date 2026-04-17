@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowLeft01Icon, PlusSignIcon } from '@hugeicons/core-free-icons'
+import { ArrowLeft01Icon, PlusSignIcon, FavouriteIcon } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
 
 interface FavoritesPageProps {
@@ -73,7 +73,7 @@ export default function FavoritesPage({ products, favoriteIds, onProductClick, o
               className="w-20 h-20 rounded-[28px] flex items-center justify-center"
               style={{ background: 'rgba(248,113,113,0.10)' }}
             >
-              <span className="text-[40px]">🤍</span>
+              <HugeiconsIcon icon={FavouriteIcon} size={36} color="rgba(248,113,113,0.60)" />
             </div>
             <p className="text-[18px] font-bold text-foreground tracking-tight">Избранное пусто</p>
             <p className="text-[14px] text-muted-foreground text-center max-w-[220px]">
@@ -111,10 +111,10 @@ export default function FavoritesPage({ products, favoriteIds, onProductClick, o
                   )}
                   {/* Favorite indicator */}
                   <div
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-[14px]"
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
                     style={{ background: 'rgba(255,255,255,0.94)' }}
                   >
-                    ❤️
+                    <HugeiconsIcon icon={FavouriteIcon} size={14} color="#f06b6b" style={{ fill: '#f06b6b' }} />
                   </div>
                 </div>
 

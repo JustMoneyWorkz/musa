@@ -137,7 +137,7 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
             <p className="text-[13px] font-medium text-muted-foreground">Доставка в</p>
             <div className="flex items-center gap-2 min-w-0">
               <HugeiconsIcon icon={Location01Icon} size={16} color="#2e8b57" />
-              <p className="text-[18px] font-bold text-foreground truncate tracking-tighter">Зелёный район</p>
+              <p className="text-[18px] font-bold text-foreground truncate tracking-tighter">Мурманск</p>
             </div>
           </div>
           <motion.button
@@ -294,7 +294,7 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
             </p>
           </div>
           {!isSearchOpen && (
-            <button className="text-[14px] font-bold shrink-0" style={{ color: '#2e8b57' }}>Все</button>
+            <button onClick={() => setActiveCategory(0)} className="text-[14px] font-bold shrink-0" style={{ color: '#2e8b57' }}>Все</button>
           )}
         </div>
 
@@ -312,7 +312,9 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
                 variants={cardVariants}
                 className="col-span-2 flex flex-col items-center justify-center py-16 gap-3"
               >
-                <p className="text-[40px]">🔍</p>
+                <div className="w-16 h-16 rounded-[20px] bg-muted flex items-center justify-center">
+                  <HugeiconsIcon icon={Search01Icon} size={28} color="#9aa3ae" />
+                </div>
                 <p className="text-[16px] font-bold text-foreground">Ничего не найдено</p>
                 <p className="text-[14px] text-muted-foreground text-center">Попробуйте изменить фильтры</p>
               </motion.div>
@@ -363,7 +365,7 @@ export default function BrowsePage({ products, onAddToCart, onProductClick, init
                     </div>
                     <motion.div
                       onClick={(e) => handleAdd(e, product.id, product.inStock)}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden${(cartQty[product.id] ?? 0) > 0 ? ' pointer-events-none' : ''}`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden${(product.inStock === false || (cartQty[product.id] ?? 0) > 0) ? ' pointer-events-none' : ''}`}
                       animate={{
                         backgroundColor: product.inStock === false
                           ? '#e4e4e7'

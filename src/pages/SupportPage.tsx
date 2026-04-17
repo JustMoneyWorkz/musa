@@ -5,6 +5,7 @@ import { ArrowLeft01Icon, ArrowDown01Icon, CustomerService01Icon } from '@hugeic
 
 interface SupportPageProps {
   onClose: () => void
+  onShowToast?: (msg: string) => void
 }
 
 const FAQ = [
@@ -39,7 +40,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.26, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
-export default function SupportPage({ onClose }: SupportPageProps) {
+export default function SupportPage({ onClose, onShowToast }: SupportPageProps) {
   const [open, setOpen] = useState<number | null>(null)
 
   const toggle = (i: number) => setOpen(prev => prev === i ? null : i)
@@ -135,6 +136,7 @@ export default function SupportPage({ onClose }: SupportPageProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.25 }}
           whileTap={{ scale: 0.97 }}
+          onClick={() => onShowToast?.('Функция в разработке')}
           className="w-full h-14 rounded-[20px] bg-foreground flex items-center justify-center gap-2.5"
         >
           <HugeiconsIcon icon={CustomerService01Icon} size={20} color="#ffffff" />

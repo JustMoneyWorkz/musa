@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { motion, animate } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Settings01Icon,
@@ -9,7 +9,9 @@ import {
   CustomerService01Icon,
   ArrowRight01Icon,
   FavouriteIcon,
+  CrownIcon,
 } from '@hugeicons/core-free-icons'
+import { Order } from '../lib/api'
 
 const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user
 
@@ -21,9 +23,6 @@ const USER = {
   avatarSrc: tgUser?.photo_url ?? '',
 }
 
-const getFavCount = () => {
-  try { return (JSON.parse(localStorage.getItem('musa_favorites') ?? '[]') as string[]).length } catch { return 0 }
-}
 
 const MENU_ITEMS = [
   {
@@ -64,6 +63,23 @@ const MENU_ITEMS = [
   },
 ]
 
+// ── Animated counter ─────────────────────────────────────────────────────────
+function AnimatedNumber({ value }: { value: number }) {
+  const [display, setDisplay] = useState(0)
+  const done = useRef(false)
+  useEffect(() => {
+    if (done.current) return
+    done.current = true
+    const controls = animate(0, value, {
+      duration: 0.85,
+      ease: [0.25, 0.46, 0.45, 0.94],
+      onUpdate: (v) => setDisplay(Math.round(v)),
+    })
+    return () => controls.stop()
+  }, [value])
+  return <>{display}</>
+}
+
 const listVariants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.07, delayChildren: 0.15 } },
@@ -75,22 +91,23 @@ const itemVariants = {
 
 interface ProfilePageProps {
   onMenuClick?: (id: string) => void
+  favoritesCount?: number
+  ordersCount?: number
+  addressesCount?: number
+  activeOrder?: Order | null
+  onOrderClick?: () => void
+  isAdmin?: boolean
+  onAdminClick?: () => void
 }
 
-export default function ProfilePage({ onMenuClick }: ProfilePageProps) {
-  const [favCount, setFavCount] = useState(getFavCount)
-
-  useEffect(() => {
-    const sync = () => setFavCount(getFavCount())
-    window.addEventListener('storage', sync)
-    window.addEventListener('focus', sync)
-    return () => { window.removeEventListener('storage', sync); window.removeEventListener('focus', sync) }
-  }, [])
-
+export default function ProfilePage({
+  onMenuClick, favoritesCount = 0, ordersCount = 0, addressesCount = 0, activeOrder, onOrderClick,
+  isAdmin, onAdminClick,
+}: ProfilePageProps) {
   const STATS = [
-    { value: '24', label: 'Заказов' },
-    { value: String(favCount), label: 'Избранное' },
-    { value: '8', label: 'Сохранено' },
+    { value: String(ordersCount), label: 'Заказов' },
+    { value: String(favoritesCount), label: 'Избранное' },
+    { value: String(addressesCount), label: 'Сохранено' },
   ]
 
   return (
@@ -102,7 +119,18 @@ export default function ProfilePage({ onMenuClick }: ProfilePageProps) {
         transition={{ duration: 0.3 }}
         className="flex items-center justify-between px-5 pt-6 pb-4"
       >
-        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center" />
+        {isAdmin ? (
+          <motion.button
+            onClick={onAdminClick}
+            className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"
+            whileTap={{ scale: 0.88 }}
+            aria-label="Админка"
+          >
+            <HugeiconsIcon icon={CrownIcon} size={18} color="#09090b" />
+          </motion.button>
+        ) : (
+          <div className="w-10 h-10" />
+        )}
         <h1 className="text-lg font-bold text-foreground tracking-tighter">Профиль</h1>
         <motion.button
           className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"
@@ -144,31 +172,45 @@ export default function ProfilePage({ onMenuClick }: ProfilePageProps) {
           <div className="w-full grid grid-cols-3 gap-2 mt-2 relative z-10">
             {STATS.map((s) => (
               <div key={s.label} className="rounded-2xl py-3 px-2 text-center" style={{ background: 'rgba(255,255,255,0.10)' }}>
-                <p className="text-lg font-bold text-white mb-1">{s.value}</p>
+                <p className="text-lg font-bold text-white mb-1">
+                  <AnimatedNumber value={parseInt(s.value) || 0} />
+                </p>
                 <p className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.72)' }}>{s.label}</p>
               </div>
             ))}
           </div>
         </motion.section>
 
-        {/* Active order card */}
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.18 }}
-          whileTap={{ scale: 0.97 }}
-          className="w-full flex items-center justify-between gap-4 rounded-2xl p-5 text-left"
-          style={{ background: 'linear-gradient(135deg, #0b7a43 0%, #2e8b57 100%)' }}
-        >
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.72)' }}>Активный заказ</p>
-            <h3 className="text-[19px] font-bold text-white tracking-tighter mb-2">Доставка органической корзины</h3>
-            <p className="text-[14px] font-medium" style={{ color: 'rgba(255,255,255,0.76)' }}>Сегодня · 14:30</p>
-          </div>
-          <div className="shrink-0 rounded-[18px] px-4 py-2.5 text-sm font-bold text-white" style={{ background: 'rgba(255,255,255,0.16)' }}>
-            Следить
-          </div>
-        </motion.button>
+        {/* Active order card — only shown when real active order exists */}
+        {activeOrder && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.18 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={onOrderClick}
+            className="w-full flex items-center justify-between gap-4 rounded-2xl p-5 text-left"
+            style={{ background: 'linear-gradient(135deg, #0b7a43 0%, #2e8b57 100%)' }}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.72)' }}>
+                Активный заказ #{activeOrder.id}
+              </p>
+              <h3 className="text-[17px] font-bold text-white tracking-tighter mb-2 truncate">
+                {activeOrder.items.map(i => `${i.name.split(' ').slice(0,2).join(' ')} ×${i.quantity}`).join(', ')}
+              </h3>
+              <p className="text-[14px] font-medium" style={{ color: 'rgba(255,255,255,0.76)' }}>
+                {activeOrder.slot_date
+                  ? `${formatOrderDate(activeOrder.slot_date)}${activeOrder.slot_time ? ' · ' + activeOrder.slot_time : ''}`
+                  : statusRu(activeOrder.status)}
+              </p>
+            </div>
+            <div className="shrink-0 rounded-[18px] px-4 py-2.5 text-sm font-bold text-white"
+                 style={{ background: 'rgba(255,255,255,0.16)' }}>
+              Следить
+            </div>
+          </motion.button>
+        )}
 
         {/* Account section */}
         <div>
@@ -206,4 +248,24 @@ export default function ProfilePage({ onMenuClick }: ProfilePageProps) {
       </div>
     </div>
   )
+}
+
+function formatOrderDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+  if (date.getTime() === today.getTime()) return 'Сегодня'
+  if (date.getTime() === tomorrow.getTime()) return 'Завтра'
+  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}
+
+function statusRu(status: string): string {
+  const map: Record<string, string> = {
+    pending: 'Ожидает подтверждения',
+    confirmed: 'Подтверждён',
+    assembling: 'Собирается',
+    delivering: 'В пути',
+  }
+  return map[status] ?? status
 }

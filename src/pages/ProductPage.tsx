@@ -1,8 +1,4 @@
-import { useState, useEffect } from 'react'
-
-const FAV_KEY = 'musa_favorites'
-const getFavIds = (): string[] => { try { return JSON.parse(localStorage.getItem(FAV_KEY) ?? '[]') } catch { return [] } }
-const saveFavIds = (ids: string[]) => localStorage.setItem(FAV_KEY, JSON.stringify(ids))
+import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -22,6 +18,8 @@ interface ProductPageProps {
   product: Product
   onClose: () => void
   onAddToCart: (id: string) => void
+  onToggleFavorite?: (id: string) => void
+  favoriteIds?: string[]
 }
 
 const NUTRITION = [
@@ -31,22 +29,54 @@ const NUTRITION = [
   { value: 'Спелый',  label: 'Зрелость' },
 ]
 
-export default function ProductPage({ product, onClose, onAddToCart }: ProductPageProps) {
-  const [isFavorite, setIsFavorite] = useState(() => getFavIds().includes(product.id))
+export default function ProductPage({ product, onClose, onAddToCart, onToggleFavorite, favoriteIds = [] }: ProductPageProps) {
+  const isFavorite = favoriteIds.includes(product.id)
   const [qty, setQty] = useState(1)
   const images = product.images?.length ? product.images : [product.imageSrc]
   const [imgIndex, setImgIndex] = useState(0)
+  const imgIndexRef = useRef(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
+  const touchStartX = useRef(0)
 
-  useEffect(() => {
-    setIsFavorite(getFavIds().includes(product.id))
-  }, [product.id])
-
-  const toggleFavorite = () => {
-    const ids = getFavIds()
-    const next = ids.includes(product.id) ? ids.filter(i => i !== product.id) : [...ids, product.id]
-    saveFavIds(next)
-    setIsFavorite(!isFavorite)
+  const snapTo = (index: number) => {
+    const w = containerRef.current?.offsetWidth ?? 300
+    const el = stripRef.current
+    if (!el) return
+    el.style.transition = 'transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+    el.style.transform = `translateX(${-index * w}px)`
   }
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    if (stripRef.current) stripRef.current.style.transition = 'none'
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStartX.current
+    const w = containerRef.current?.offsetWidth ?? 300
+    const idx = imgIndexRef.current
+    const offset = (idx === 0 && dx > 0) || (idx === images.length - 1 && dx < 0)
+      ? dx * 0.25
+      : dx
+    if (stripRef.current)
+      stripRef.current.style.transform = `translateX(${-idx * w + offset}px)`
+  }
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const idx = imgIndexRef.current
+    let next = idx
+    if (dx < -50 && idx < images.length - 1) next = idx + 1
+    else if (dx > 50 && idx > 0) next = idx - 1
+    imgIndexRef.current = next
+    setImgIndex(next)
+    snapTo(next)
+  }
+
+  const weightShort = product.weight.split('·')[0].trim()
+
+  const toggleFavorite = () => onToggleFavorite?.(product.id)
 
   const increment = () => setQty(q => q + 1)
   const decrement = () => setQty(q => Math.max(1, q - 1))
@@ -123,41 +153,36 @@ export default function ProductPage({ product, onClose, onAddToCart }: ProductPa
           </div>
 
           <div
+            ref={containerRef}
             className="w-full h-[188px] rounded-2xl relative z-10 overflow-hidden"
             style={{ background: 'rgba(255,255,255,0.08)' }}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
           >
-            <motion.div
+            <div
+              ref={stripRef}
               className="flex h-full"
-              style={{ width: `${images.length * 100}%` }}
-              animate={{ x: `-${(imgIndex / images.length) * 100}%` }}
-              transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.18}
-              onDragEnd={(_, info) => {
-                const threshold = 40
-                if (info.offset.x < -threshold && imgIndex < images.length - 1) setImgIndex(i => i + 1)
-                else if (info.offset.x > threshold && imgIndex > 0) setImgIndex(i => i - 1)
-              }}
+              style={{ width: `${images.length * 100}%`, willChange: 'transform' }}
             >
               {images.map((src, i) => (
                 <div key={i} className="h-full flex-shrink-0" style={{ width: `${100 / images.length}%` }}>
                   <img src={src} alt={`${product.title} ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
                 </div>
               ))}
-            </motion.div>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2 relative z-10">
             {[
-              { icon: StarIcon,        value: '4.9',         label: 'Рейтинг' },
-              { icon: DeliveryBox01Icon, value: product.weight, label: 'Фасовка' },
-              { icon: Location01Icon,  value: 'Ферма',       label: 'Происхождение' },
+              { icon: StarIcon,          value: '4.9',       label: 'Рейтинг' },
+              { icon: DeliveryBox01Icon, value: weightShort, label: 'Вес' },
+              { icon: Location01Icon,    value: 'Своя',      label: 'Ферма' },
             ].map(({ icon, value, label }) => (
-              <div key={label} className="rounded-2xl py-3 px-2 text-center" style={{ background: 'rgba(255,255,255,0.10)' }}>
-                <HugeiconsIcon icon={icon} size={14} color="rgba(255,255,255,0.72)" className="mx-auto mb-1" />
-                <p className="text-[13px] font-bold text-white leading-tight">{value}</p>
-                <p className="text-[11px] font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{label}</p>
+              <div key={label} className="rounded-2xl py-3 px-2 text-center flex flex-col items-center" style={{ background: 'rgba(255,255,255,0.10)' }}>
+                <HugeiconsIcon icon={icon} size={14} color="rgba(255,255,255,0.72)" />
+                <p className="text-[13px] font-bold text-white leading-tight mt-1 w-full truncate text-center">{value}</p>
+                <p className="text-[11px] font-medium mt-0.5 w-full truncate text-center" style={{ color: 'rgba(255,255,255,0.55)' }}>{label}</p>
               </div>
             ))}
           </div>
@@ -253,14 +278,22 @@ export default function ProductPage({ product, onClose, onAddToCart }: ProductPa
           </div>
 
           <motion.button
-            onClick={() => { for (let i = 0; i < qty; i++) onAddToCart(product.id) }}
-            whileTap={{ scale: 0.97 }}
-            className="h-14 rounded-[20px] bg-foreground flex items-center justify-between px-5 w-full"
+            onClick={() => { if (product.inStock === false) return; for (let i = 0; i < qty; i++) onAddToCart(product.id) }}
+            whileTap={product.inStock !== false ? { scale: 0.97 } : undefined}
+            className="h-14 rounded-[20px] flex items-center justify-between px-5 w-full relative overflow-hidden"
+            style={{ background: product.inStock === false ? '#e4e4e7' : '#09090b' }}
           >
-            <span className="text-base font-bold text-white">Добавить в корзину</span>
-            <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold text-white leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>
-              {product.price * qty} ₽
+            <span className="text-base font-bold" style={{ color: product.inStock === false ? '#a1a1aa' : '#ffffff' }}>
+              {product.inStock === false ? 'Нет в наличии' : 'Добавить в корзину'}
             </span>
+            {product.inStock !== false && (
+              <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold text-white leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                {product.price * qty} ₽
+              </span>
+            )}
+            {product.inStock === false && (
+              <div className="absolute inset-0 rounded-[20px] pointer-events-none" style={{ background: 'rgba(255,255,255,0.35)' }} />
+            )}
           </motion.button>
         </motion.section>
 

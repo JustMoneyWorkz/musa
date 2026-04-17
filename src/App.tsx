@@ -1,8 +1,7 @@
 import { useState, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Leaf01Icon, ShoppingBasket03Icon } from '@hugeicons/core-free-icons'
-import Header from './components/Header'
+import { Leaf01Icon, ShoppingBasket03Icon, StarIcon, CustomerService01Icon } from '@hugeicons/core-free-icons'
 import ProductCard, { Product } from './components/ProductCard'
 import BottomNav from './components/BottomNav'
 import ProfilePage from './pages/ProfilePage'
@@ -11,9 +10,18 @@ import CartPage from './pages/CartPage'
 import BrowsePage from './pages/BrowsePage'
 import FavoritesPage from './pages/FavoritesPage'
 import OrdersPage from './pages/OrdersPage'
+import OrderDetailPage from './pages/OrderDetailPage'
+import CheckoutPage from './pages/CheckoutPage'
 import AddressesPage from './pages/AddressesPage'
 import PaymentPage from './pages/PaymentPage'
 import SupportPage from './pages/SupportPage'
+import { useCart } from './hooks/useCart'
+import { useFavorites } from './hooks/useFavorites'
+import { useAddresses } from './hooks/useAddresses'
+import { useOrders } from './hooks/useOrders'
+import { useAdmin } from './hooks/useAdmin'
+import AdminPage from './pages/AdminPage'
+import { Order } from './lib/api'
 
 type ProfileSection = 'orders' | 'addresses' | 'payment' | 'support'
 
@@ -200,49 +208,48 @@ const gridItem = {
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [cartQty, setCartQty] = useState<Record<string, number>>({})
+  const { cartQty, cartCount, addToCart, decrement, clearCart } = useCart()
+  const { favoriteIds, favoritesCount, toggleFavorite, refreshFavorites } = useFavorites()
+  const addresses = useAddresses()
+  const { orders, loading: ordersLoading, activeOrder, ordersCount, refreshOrders } = useOrders()
+  const { isAdmin } = useAdmin()
+
   const [activeTab, setActiveTab] = useState<Tab>('home')
+  const [adminOpen, setAdminOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [browseCategory, setBrowseCategory] = useState<string | undefined>(undefined)
   const [favoritesOpen, setFavoritesOpen] = useState(false)
-  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('musa_favorites') ?? '[]') } catch { return [] }
-  })
   const [profileSection, setProfileSection] = useState<ProfileSection | null>(null)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [globalToast, setGlobalToast] = useState<string | null>(null)
   const prevTabRef = useRef<Tab>('home')
 
+  const showGlobalToast = (msg: string) => {
+    setGlobalToast(msg)
+    setTimeout(() => setGlobalToast(null), 2500)
+  }
+
   const handleNavigate = (tab: Tab) => {
+    if (tab === activeTab) return
     prevTabRef.current = activeTab
     if (tab !== 'catalog') setBrowseCategory(undefined)
     setActiveTab(tab)
     setSelectedProduct(null)
     setFavoritesOpen(false)
     setProfileSection(null)
+    setCheckoutOpen(false)
+    window.scrollTo(0, 0)
   }
 
   const handleCategoryClick = (categoryTitle: string) => {
     prevTabRef.current = activeTab
     setBrowseCategory(categoryTitle)
     setActiveTab('catalog')
+    window.scrollTo(0, 0)
   }
 
   const direction = TAB_ORDER.indexOf(activeTab) - TAB_ORDER.indexOf(prevTabRef.current)
-
-  const handleAddToCart = (id: string) =>
-    setCartQty((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
-
-  const handleDecrement = (id: string) =>
-    setCartQty((prev) => {
-      const next = { ...prev }
-      if ((next[id] ?? 0) <= 1) delete next[id]
-      else next[id]--
-      return next
-    })
-
-  // Sync favorites from localStorage whenever product overlay closes
-  const refreshFavorites = () => {
-    try { setFavoriteIds(JSON.parse(localStorage.getItem('musa_favorites') ?? '[]')) } catch {}
-  }
 
   const handleProfileMenuClick = (id: string) => {
     if (id === 'favorites') {
@@ -253,15 +260,85 @@ export default function App() {
     }
   }
 
-  const cartCount = Object.values(cartQty).reduce((s, q) => s + q, 0)
   const cartItems = PRODUCTS
     .filter((p) => cartQty[p.id])
     .map((p) => ({ product: p, qty: cartQty[p.id] }))
 
   // ─── Home page ─────────────────────────────────────────────────────────────
+  const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user
+  const homeAvatarSrc: string = tgUser?.photo_url ?? ''
+
   const homePage = (
     <div className="flex flex-col min-h-screen pb-[110px]">
-      <Header />
+      {/* Home header — no search */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="flex items-center justify-between px-5 pt-6 pb-2"
+      >
+        <div className="flex items-center gap-2.5">
+          {/* Logo — BlurFade: blur+scale, delay after page loads */}
+          <motion.img
+            src="/logo.svg"
+            alt="СВОЙнабор"
+            className="w-10 h-10 object-contain shrink-0"
+            initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.78 }}
+            animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.5 }}
+          />
+          <div>
+            <motion.p
+              className="text-[12px] font-medium text-muted-foreground leading-none mb-0.5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.62 }}
+            >
+              Добро пожаловать
+            </motion.p>
+            {/* TextRoll — каждая буква вращается по оси X (barrel-roll) */}
+            <h1 className="text-[19px] font-bold text-foreground tracking-tighter leading-none flex" style={{ perspective: 500 }}>
+              {'СВОЙнабор'.split('').map((char, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ rotateX: 90, opacity: 0 }}
+                  animate={{ rotateX: 0, opacity: 1 }}
+                  transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1], delay: 0.55 + i * 0.045 }}
+                  style={{ display: 'inline-block', transformOrigin: '50% 100%' }}
+                >
+                  {char}
+                </motion.span>
+              ))}
+            </h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => (window as unknown as { Telegram?: { WebApp?: { openTelegramLink?: (u: string) => void } } })
+              .Telegram?.WebApp?.openTelegramLink?.('https://t.me/musa_support')}
+            className="w-11 h-11 rounded-full bg-muted flex items-center justify-center"
+            aria-label="Поддержка"
+          >
+            <HugeiconsIcon icon={CustomerService01Icon} size={20} color="#09090b" />
+          </button>
+          {homeAvatarSrc ? (
+            <motion.img
+              src={homeAvatarSrc}
+              alt="Профиль"
+              className="w-11 h-11 rounded-full object-cover"
+              whileTap={{ scale: 0.92 }}
+            />
+          ) : (
+            <motion.div
+              className="w-11 h-11 rounded-full flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' }}
+              whileTap={{ scale: 0.92 }}
+            >
+              <span className="text-white text-base font-bold">М</span>
+            </motion.div>
+          )}
+        </div>
+      </motion.div>
 
       <div className="px-5 flex flex-col gap-6 pt-4">
 
@@ -285,6 +362,7 @@ export default function App() {
             Храните, управляйте и заказывайте свежие фермерские продукты в одном месте.
           </p>
           <motion.button
+            onClick={() => handleNavigate('catalog')}
             className="bg-white text-foreground font-semibold text-[15px] px-6 py-3.5 rounded-full"
             whileTap={{ scale: 0.94 }}
           >
@@ -325,15 +403,45 @@ export default function App() {
           </motion.div>
         </div>
 
+        {/* Reviews block */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.38, delay: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="flex items-center gap-4 rounded-[20px] px-5 py-4 bg-muted"
+        >
+          <div
+            className="w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 text-[18px]"
+            style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
+          >
+            <HugeiconsIcon icon={StarIcon} size={20} color="#ffffff" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[17px] font-bold text-foreground tracking-tighter">5.0</span>
+              <div className="flex items-center gap-[2px]">
+                {[...Array(5)].map((_, i) => (
+                  <HugeiconsIcon key={i} icon={StarIcon} size={12} color="#f59e0b" />
+                ))}
+              </div>
+            </div>
+            <p className="text-[13px] font-medium text-muted-foreground mt-0.5">25+ довольных клиентов</p>
+          </div>
+          <span className="text-[12px] font-bold px-3 py-1.5 rounded-full shrink-0"
+                style={{ background: 'rgba(46,139,87,0.10)', color: '#2e8b57' }}>
+            Отзывы
+          </span>
+        </motion.div>
+
       </div>
     </div>
   )
 
   const renderPage = () => {
     switch (activeTab) {
-      case 'catalog':   return <BrowsePage key={browseCategory ?? 'all'} products={PRODUCTS} initialCategory={browseCategory} onAddToCart={handleAddToCart} onProductClick={(p) => setSelectedProduct(p)} cartQty={cartQty} />
-      case 'favorites': return <CartPage items={cartItems} onIncrement={handleAddToCart} onDecrement={handleDecrement} />
-      case 'profile':   return <ProfilePage onMenuClick={handleProfileMenuClick} />
+      case 'catalog':   return <BrowsePage key={browseCategory ?? 'all'} products={PRODUCTS} initialCategory={browseCategory} onAddToCart={addToCart} onProductClick={(p) => setSelectedProduct(p)} cartQty={cartQty} />
+      case 'favorites': return <CartPage items={cartItems} onIncrement={addToCart} onDecrement={decrement} onCheckout={() => setCheckoutOpen(true)} />
+      case 'profile':   return <ProfilePage onMenuClick={handleProfileMenuClick} favoritesCount={favoritesCount} ordersCount={ordersCount} addressesCount={addresses.addresses.length} activeOrder={activeOrder} onOrderClick={() => setProfileSection('orders')} isAdmin={isAdmin} onAdminClick={() => setAdminOpen(true)} />
       default: return homePage
     }
   }
@@ -367,14 +475,14 @@ export default function App() {
             animate="visible"
             exit="exit"
             transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
-            className="fixed inset-0 z-50 overflow-y-auto bg-background"
-            style={{ willChange: 'transform, opacity' }}
+            className="fixed inset-0 overflow-y-auto bg-background"
+            style={{ willChange: 'transform, opacity', zIndex: 90 }}
           >
             <FavoritesPage
               products={PRODUCTS}
               favoriteIds={favoriteIds}
               onProductClick={(p) => { setFavoritesOpen(false); setSelectedProduct(p) }}
-              onAddToCart={handleAddToCart}
+              onAddToCart={addToCart}
               onClose={() => setFavoritesOpen(false)}
             />
           </motion.div>
@@ -391,13 +499,15 @@ export default function App() {
             animate="visible"
             exit="exit"
             transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
-            className="fixed inset-0 z-50 overflow-y-auto bg-background"
-            style={{ willChange: 'transform, opacity' }}
+            className="fixed inset-0 overflow-y-auto bg-background"
+            style={{ willChange: 'transform, opacity', zIndex: 90 }}
           >
             <ProductPage
               product={selectedProduct}
               onClose={() => { setSelectedProduct(null); refreshFavorites() }}
-              onAddToCart={(id) => { handleAddToCart(id); setSelectedProduct(null); handleNavigate('favorites') }}
+              onAddToCart={(id) => { addToCart(id); setSelectedProduct(null); handleNavigate('favorites') }}
+              onToggleFavorite={toggleFavorite}
+              favoriteIds={favoriteIds}
             />
           </motion.div>
         )}
@@ -408,8 +518,25 @@ export default function App() {
         {profileSection === 'orders' && (
           <motion.div key="orders-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
             transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
-            className="fixed inset-0 z-50 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity' }}>
-            <OrdersPage onClose={() => setProfileSection(null)} />
+            className="fixed inset-0 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity', zIndex: 90 }}>
+            <OrdersPage onClose={() => setProfileSection(null)} orders={orders} loading={ordersLoading} onRefresh={refreshOrders} onOrderClick={(o) => setSelectedOrder(o)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Order detail overlay */}
+      <AnimatePresence>
+        {selectedOrder && (
+          <motion.div key="order-detail-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
+            transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
+            className="fixed inset-0 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity', zIndex: 95 }}>
+            <OrderDetailPage
+              order={selectedOrder}
+              onClose={() => setSelectedOrder(null)}
+              onOrderUpdated={(updated) => {
+                setSelectedOrder(updated)
+                refreshOrders()
+              }}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -417,8 +544,8 @@ export default function App() {
         {profileSection === 'addresses' && (
           <motion.div key="addresses-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
             transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
-            className="fixed inset-0 z-50 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity' }}>
-            <AddressesPage onClose={() => setProfileSection(null)} />
+            className="fixed inset-0 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity', zIndex: 90 }}>
+            <AddressesPage onClose={() => setProfileSection(null)} onShowToast={showGlobalToast} addressesHook={addresses} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -426,8 +553,8 @@ export default function App() {
         {profileSection === 'payment' && (
           <motion.div key="payment-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
             transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
-            className="fixed inset-0 z-50 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity' }}>
-            <PaymentPage onClose={() => setProfileSection(null)} />
+            className="fixed inset-0 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity', zIndex: 90 }}>
+            <PaymentPage onClose={() => setProfileSection(null)} onShowToast={showGlobalToast} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -435,8 +562,48 @@ export default function App() {
         {profileSection === 'support' && (
           <motion.div key="support-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
             transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
-            className="fixed inset-0 z-50 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity' }}>
-            <SupportPage onClose={() => setProfileSection(null)} />
+            className="fixed inset-0 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity', zIndex: 90 }}>
+            <SupportPage onClose={() => setProfileSection(null)} onShowToast={showGlobalToast} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {checkoutOpen && (
+          <motion.div key="checkout-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
+            transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
+            className="fixed inset-0 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity', zIndex: 90 }}>
+            <CheckoutPage
+              items={cartItems}
+              onClose={() => setCheckoutOpen(false)}
+              onConfirm={(_orderId) => { setCheckoutOpen(false); clearCart(); refreshOrders() }}
+              savedAddresses={addresses.addresses}
+              onSaveAddress={addresses.addAddress}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Admin panel overlay */}
+      <AnimatePresence>
+        {adminOpen && (
+          <motion.div key="admin-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
+            transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
+            className="fixed inset-0 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity', zIndex: 100 }}>
+            <AdminPage isAdmin={isAdmin} onClose={() => setAdminOpen(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Global toast */}
+      <AnimatePresence>
+        {globalToast && (
+          <motion.div
+            key="global-toast"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-28 left-5 right-5 bg-foreground text-white text-center py-3.5 rounded-[16px] text-[14px] font-bold"
+            style={{ zIndex: 200 }}
+          >
+            {globalToast}
           </motion.div>
         )}
       </AnimatePresence>

@@ -5,7 +5,6 @@ import {
   ShoppingBasket01Icon,
   MinusSignIcon,
   PlusSignIcon,
-  DiscountTag01Icon,
   ShoppingCart01Icon,
 } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
@@ -19,10 +18,10 @@ interface CartPageProps {
   items: CartItem[]
   onIncrement: (id: string) => void
   onDecrement: (id: string) => void
+  onCheckout?: () => void
 }
 
 const DELIVERY_FEE = 299
-const PROMO_DISCOUNT = 150
 
 const listVariants = {
   hidden: {},
@@ -33,10 +32,10 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
-export default function CartPage({ items, onIncrement, onDecrement }: CartPageProps) {
+export default function CartPage({ items, onIncrement, onDecrement, onCheckout }: CartPageProps) {
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
   const subtotal   = items.reduce((s, i) => s + i.product.price * i.qty, 0)
-  const total      = subtotal + DELIVERY_FEE - PROMO_DISCOUNT
+  const total      = subtotal + DELIVERY_FEE
 
   if (items.length === 0) {
     return (
@@ -186,14 +185,6 @@ export default function CartPage({ items, onIncrement, onDecrement }: CartPagePr
             <p className="text-[15px] font-medium text-muted-foreground mt-1">Проверьте заказ перед оформлением</p>
           </div>
 
-          <div className="bg-card rounded-[20px] px-4 py-3.5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 flex-1 min-w-0">
-              <HugeiconsIcon icon={DiscountTag01Icon} size={20} color="#10703a" />
-              <p className="text-[15px] font-bold text-foreground truncate">Промокод применён</p>
-            </div>
-            <span className="text-[15px] font-bold text-foreground shrink-0">−{PROMO_DISCOUNT} ₽</span>
-          </div>
-
           <div className="flex items-center justify-between">
             <span className="text-[15px] font-medium text-muted-foreground">Подытог</span>
             <span className="text-[15px] font-bold text-foreground">{subtotal} ₽</span>
@@ -208,6 +199,7 @@ export default function CartPage({ items, onIncrement, onDecrement }: CartPagePr
           </div>
 
           <motion.button
+            onClick={onCheckout}
             whileTap={{ scale: 0.97 }}
             className="h-14 rounded-[20px] bg-foreground flex items-center justify-between px-5 w-full"
           >

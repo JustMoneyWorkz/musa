@@ -13,7 +13,7 @@ interface HeaderProps {
 }
 
 export default function Header({
-  greeting = 'Доброе утро 👋',
+  greeting = 'Доброе утро',
   name = 'Магазин Муса',
   avatarSrc = 'https://storage.googleapis.com/banani-avatars/avatar%2Fmale%2F25-35%2FEuropean%2F2',
   showFilter = false,
