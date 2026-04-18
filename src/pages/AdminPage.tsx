@@ -1217,7 +1217,10 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
                   <div className="flex-1"><FormField label="Остаток (шт.) *" value={form.stock} type="number" onChange={v=>setForm(f=>({...f,stock:v}))} placeholder="50" /></div>
                 </div>
                 <FormField label="Категория *" value={form.category} onChange={v=>setForm(f=>({...f,category:v}))} placeholder="Овощи" />
-                <FormField label="Изображения (URL, каждый с новой строки)" value={form.images} multiline onChange={v=>setForm(f=>({...f,images:v}))} placeholder="https://…" />
+                <ImagesField
+                  value={form.images.split('\n').map(s=>s.trim()).filter(Boolean)}
+                  onChange={arr=>setForm(f=>({...f,images:arr.join('\n')}))}
+                />
                 <FormField label="Происхождение" value={form.origin} onChange={v=>setForm(f=>({...f,origin:v}))} placeholder="Россия, Краснодарский край" />
                 <FormField label="Теги (через запятую)" value={form.tags} onChange={v=>setForm(f=>({...f,tags:v}))} placeholder="органик, фермерское" />
                 <FormField label="Описание" value={form.description} multiline onChange={v=>setForm(f=>({...f,description:v}))} placeholder="Подробное описание…" />
@@ -1276,6 +1279,136 @@ function InfoRow({ icon, label, value, green }: { icon:any; label:string; value:
       <span className="text-[13px] font-medium text-muted-foreground w-20 shrink-0">{label}</span>
       <span className="text-[14px] font-bold flex-1 min-w-0 truncate"
             style={{ color: green ? '#2e8b57' : '#09090b' }}>{value}</span>
+    </div>
+  )
+}
+
+function ImagesField({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [draft, setDraft] = useState('')
+  const [validity, setValidity] = useState<Record<string, 'ok'|'err'|'loading'>>({})
+  const [draftError, setDraftError] = useState<string|null>(null)
+
+  // Probe each URL once
+  useEffect(() => {
+    for (const url of value) {
+      if (validity[url]) continue
+      setValidity(v => ({ ...v, [url]: 'loading' }))
+      const img = new Image()
+      img.onload = () => setValidity(v => ({ ...v, [url]: 'ok' }))
+      img.onerror = () => setValidity(v => ({ ...v, [url]: 'err' }))
+      img.src = url
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
+  const isLikelyUrl = (s: string) => /^https?:\/\/.+\..+/i.test(s.trim())
+
+  const handleAdd = () => {
+    const url = draft.trim()
+    if (!url) return
+    if (!isLikelyUrl(url)) { setDraftError('Введите корректный URL (http/https)'); return }
+    if (value.includes(url)) { setDraftError('Этот URL уже добавлен'); return }
+    onChange([...value, url])
+    setDraft('')
+    setDraftError(null)
+  }
+
+  const handleRemove = (url: string) => {
+    onChange(value.filter(u => u !== url))
+    setValidity(v => { const next = { ...v }; delete next[url]; return next })
+  }
+
+  const handleMove = (url: string, dir: -1 | 1) => {
+    const idx = value.indexOf(url)
+    if (idx < 0) return
+    const next = [...value]
+    const swap = idx + dir
+    if (swap < 0 || swap >= next.length) return
+    ;[next[idx], next[swap]] = [next[swap], next[idx]]
+    onChange(next)
+  }
+
+  const base = "w-full bg-muted rounded-[16px] px-4 text-[14px] font-medium text-foreground placeholder:text-muted-foreground outline-none"
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[13px] font-bold text-muted-foreground px-1">
+        Изображения {value.length > 0 && <span className="text-muted-foreground/70 font-medium">· {value.length}</span>}
+      </label>
+
+      {value.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {value.map((url, idx) => {
+            const status = validity[url]
+            return (
+              <div key={url} className="flex items-center gap-3 bg-muted rounded-[16px] p-2">
+                <div className="w-12 h-12 rounded-[12px] overflow-hidden shrink-0 bg-card flex items-center justify-center relative">
+                  {status === 'err' ? (
+                    <HugeiconsIcon icon={Cancel01Icon} size={18} color="#ef4444" />
+                  ) : status === 'loading' || !status ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
+                  ) : (
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  )}
+                  {idx === 0 && (
+                    <span className="absolute top-0.5 left-0.5 text-[8px] font-bold px-1 py-0.5 rounded leading-none"
+                          style={{ background:'#09090b', color:'#fff' }}>1</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-medium text-foreground truncate" title={url}>{url}</p>
+                  <p className="text-[11px] font-medium mt-0.5"
+                     style={{ color: status === 'err' ? '#ef4444' : status === 'ok' ? '#2e8b57' : '#9aa3ae' }}>
+                    {status === 'err' ? 'Не удалось загрузить' : status === 'ok' ? 'OK' : 'Проверка…'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {value.length > 1 && (
+                    <>
+                      <button type="button" onClick={()=>handleMove(url,-1)} disabled={idx===0}
+                        className="w-7 h-7 rounded-[10px] bg-card flex items-center justify-center disabled:opacity-30"
+                        aria-label="Вверх">
+                        <span className="text-[12px] font-bold leading-none">↑</span>
+                      </button>
+                      <button type="button" onClick={()=>handleMove(url,1)} disabled={idx===value.length-1}
+                        className="w-7 h-7 rounded-[10px] bg-card flex items-center justify-center disabled:opacity-30"
+                        aria-label="Вниз">
+                        <span className="text-[12px] font-bold leading-none">↓</span>
+                      </button>
+                    </>
+                  )}
+                  <button type="button" onClick={()=>handleRemove(url)}
+                    className="w-7 h-7 rounded-[10px] flex items-center justify-center"
+                    style={{ background:'rgba(239,68,68,0.10)' }} aria-label="Удалить">
+                    <HugeiconsIcon icon={Cancel01Icon} size={12} color="#ef4444" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="flex gap-2 mt-1">
+        <input
+          value={draft}
+          onChange={e=>{ setDraft(e.target.value); if (draftError) setDraftError(null) }}
+          onKeyDown={e=>{ if (e.key==='Enter') { e.preventDefault(); handleAdd() } }}
+          placeholder="https://example.com/image.jpg"
+          className={`${base} h-11 flex-1`}
+        />
+        <button type="button" onClick={handleAdd}
+          className="h-11 px-4 rounded-[16px] bg-foreground text-white text-[13px] font-bold flex items-center gap-1.5">
+          <HugeiconsIcon icon={PlusSignIcon} size={14} color="#ffffff" />
+          Добавить
+        </button>
+      </div>
+      {draftError && <p className="text-[11px] font-medium px-1" style={{ color:'#ef4444' }}>{draftError}</p>}
+      {value.length === 0 && !draftError && (
+        <p className="text-[11px] font-medium text-muted-foreground px-1">
+          Первое изображение будет главным. Поддерживаются прямые URL на картинки (jpg/png/webp).
+        </p>
+      )}
     </div>
   )
 }
