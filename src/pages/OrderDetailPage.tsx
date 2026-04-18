@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -48,6 +48,23 @@ export default function OrderDetailPage({ order: initialOrder, onClose, onOrderU
     setToast(msg)
     setTimeout(() => setToast(null), 2800)
   }
+
+  // Refetch актуальное состояние заказа при открытии детали — статус мог измениться
+  // на стороне админа пока пользователь был в другом месте приложения.
+  useEffect(() => {
+    let cancelled = false
+    ordersApi.getById(initialOrder.id)
+      .then(fresh => {
+        if (cancelled) return
+        setOrder(fresh)
+        if (fresh.status !== initialOrder.status) {
+          onOrderUpdated(fresh)
+        }
+      })
+      .catch(() => { /* молча — покажем last known state */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOrder.id])
 
   const handleConfirm = async () => {
     if (confirming) return

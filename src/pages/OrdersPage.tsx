@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon, ArrowRight01Icon, DeliveryBox01Icon, Refresh01Icon } from '@hugeicons/core-free-icons'
@@ -65,6 +66,13 @@ const itemVariants = {
 export { STATUS_LABEL, STATUS_COLOR, STATUS_BG }
 
 export default function OrdersPage({ onClose, orders, loading, onRefresh, onOrderClick }: OrdersPageProps) {
+  // Auto-refresh on mount — чтобы пользователь видел актуальный статус сразу при открытии,
+  // без pull-to-refresh (статус мог быть обновлён админом пока страница была закрыта)
+  useEffect(() => {
+    onRefresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="flex flex-col min-h-screen bg-background pb-[110px]">
       {/* Top bar */}
