@@ -26,8 +26,11 @@ interface CheckoutPageProps {
   onClose: () => void
   onConfirm: (orderId: number) => void
   savedAddresses: Address[]
+  canAddAddress: boolean
   onSaveAddress: (data: { address: string; label?: string }) => Promise<{ error?: string }>
 }
+
+const MAX_ADDRESSES = 5
 
 const DELIVERY_FEE = 299
 
@@ -54,7 +57,7 @@ function formatSlotDate(dateStr: string): string {
 }
 
 export default function CheckoutPage({
-  items, onClose, onConfirm, savedAddresses, onSaveAddress,
+  items, onClose, onConfirm, savedAddresses, canAddAddress, onSaveAddress,
 }: CheckoutPageProps) {
   // Contact
   const [firstName, setFirstName] = useState('')
@@ -163,9 +166,17 @@ export default function CheckoutPage({
 
     try {
       // Save new address (best-effort, не блокирует заказ)
-      if (selectedAddrId === 'new' && saveNewAddr && newAddress.trim()) {
-        try { await onSaveAddress({ address: newAddress.trim() }) }
-        catch (e) { console.warn('[checkout] save addr failed:', e) }
+      if (selectedAddrId === 'new' && saveNewAddr && newAddress.trim() && canAddAddress) {
+        try {
+          const res = await onSaveAddress({ address: newAddress.trim() })
+          if (res?.error) {
+            console.warn('[checkout] save addr returned error:', res.error)
+            // не блокируем заказ, но информируем юзера
+            showToast(`Адрес не сохранён: ${res.error}`)
+          }
+        } catch (e) {
+          console.warn('[checkout] save addr threw:', e)
+        }
       }
 
       const payload = {
@@ -356,16 +367,24 @@ export default function CheckoutPage({
                   placeholder="ул. Зелёная, д. 12, кв. 34"
                   className={inputCls}
                 />
-                <label className="flex items-center gap-2 cursor-pointer px-1">
-                  <div
-                    onClick={() => setSaveNewAddr(v => !v)}
-                    className="w-5 h-5 rounded-[6px] flex items-center justify-center shrink-0 transition-colors"
-                    style={{ background: saveNewAddr ? '#09090b' : 'transparent', border: `2px solid ${saveNewAddr ? '#09090b' : '#d4d4d8'}` }}
-                  >
-                    {saveNewAddr && <HugeiconsIcon icon={Tick01Icon} size={11} color="#fff" />}
-                  </div>
-                  <span className="text-[13px] font-medium text-muted-foreground">Сохранить в профиль</span>
-                </label>
+                {canAddAddress ? (
+                  <label className="flex items-center gap-2 cursor-pointer px-1">
+                    <div
+                      onClick={() => setSaveNewAddr(v => !v)}
+                      className="w-5 h-5 rounded-[6px] flex items-center justify-center shrink-0 transition-colors"
+                      style={{ background: saveNewAddr ? '#09090b' : 'transparent', border: `2px solid ${saveNewAddr ? '#09090b' : '#d4d4d8'}` }}
+                    >
+                      {saveNewAddr && <HugeiconsIcon icon={Tick01Icon} size={11} color="#fff" />}
+                    </div>
+                    <span className="text-[13px] font-medium text-muted-foreground">
+                      Сохранить в профиль ({savedAddresses.length}/{MAX_ADDRESSES})
+                    </span>
+                  </label>
+                ) : (
+                  <p className="text-[12px] font-medium px-1" style={{ color: '#9aa3ae' }}>
+                    Достигнут лимит сохранённых адресов ({MAX_ADDRESSES} из {MAX_ADDRESSES})
+                  </p>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -445,10 +464,12 @@ export default function CheckoutPage({
               <motion.button
                 onClick={() => { setPromoData(null); setPromoInput('') }}
                 whileTap={{ scale: 0.9 }}
-                className="h-12 px-4 rounded-[14px] text-[13px] font-bold"
-                style={{ background: 'rgba(46,139,87,0.12)', color: '#2e8b57' }}
+                className="h-12 px-4 rounded-[14px] text-[13px] font-bold text-white flex items-center gap-1.5"
+                style={{ background: '#2e8b57' }}
+                aria-label="Убрать промокод"
               >
-                Убрать
+                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} color="#ffffff" />
+                Применён
               </motion.button>
             ) : (
               <motion.button
@@ -466,12 +487,18 @@ export default function CheckoutPage({
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 px-1"
+              className="flex items-center justify-between px-1"
             >
-              <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} color="#2e8b57" />
               <span className="text-[13px] font-bold" style={{ color: '#2e8b57' }}>
-                {promoData.code} — скидка {promoData.discount_percent}%
+                {promoData.code} · −{promoData.discount_percent}%
               </span>
+              <button
+                onClick={() => { setPromoData(null); setPromoInput('') }}
+                className="text-[12px] font-medium underline"
+                style={{ color: '#9aa3ae' }}
+              >
+                убрать
+              </button>
             </motion.div>
           )}
         </motion.section>

@@ -604,6 +604,7 @@ export default function App() {
                 handleNavigate('home')
               }}
               savedAddresses={addresses.addresses}
+              canAddAddress={addresses.canAdd}
               onSaveAddress={addresses.addAddress}
             />
           </motion.div>
