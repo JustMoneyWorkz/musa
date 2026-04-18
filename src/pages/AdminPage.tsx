@@ -27,6 +27,7 @@ import {
 interface AdminPageProps {
   isAdmin: boolean
   onClose: () => void
+  onProductsChanged?: () => void
 }
 
 // ── Status display ───────────────────────────────────────────────────────────
@@ -168,7 +169,7 @@ const overlayV = {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-export default function AdminPage({ isAdmin, onClose }: AdminPageProps) {
+export default function AdminPage({ isAdmin, onClose, onProductsChanged }: AdminPageProps) {
 
   // ── toast ──
   const [toast, setToast] = useState<string|null>(null)
@@ -190,6 +191,7 @@ export default function AdminPage({ isAdmin, onClose }: AdminPageProps) {
   const [editProduct,setEditProduct] = useState<AdminProduct|null>(null)
   const [form,       setForm]       = useState<FormState>(EMPTY_FORM)
   const [saving,     setSaving]     = useState(false)
+  const [justAdded,  setJustAdded]  = useState(false)
   const [deleteTarget,setDeleteTarget] = useState<AdminProduct|null>(null)
   const [deleting,   setDeleting]   = useState(false)
 
@@ -256,7 +258,7 @@ export default function AdminPage({ isAdmin, onClose }: AdminPageProps) {
   const openEdit = (p: AdminProduct) => { setEditProduct(p); setForm(productToForm(p)); setFormOpen(true) }
 
   const handleSave = async () => {
-    if (saving) return
+    if (saving || justAdded) return
     const payload = formToPayload(form)
     if (!payload.name||!payload.price||!payload.weight||!payload.category) {
       showToast('Заполните обязательные поля'); return
@@ -266,13 +268,21 @@ export default function AdminPage({ isAdmin, onClose }: AdminPageProps) {
       if (editProduct) {
         const updated = await productsAdminApi.update(editProduct.id, payload)
         setProducts(prev => prev.map(p => p.id===updated.id ? updated : p))
+        onProductsChanged?.()
         showToast('Товар обновлён')
+        setFormOpen(false)
       } else {
         const created = await productsAdminApi.create(payload)
         setProducts(prev => [created, ...prev])
-        showToast('Товар добавлен')
+        onProductsChanged?.()
+        setSaving(false)
+        setJustAdded(true)
+        setTimeout(() => {
+          setFormOpen(false)
+          setJustAdded(false)
+        }, 1000)
+        return
       }
-      setFormOpen(false)
     } catch(err) {
       showToast(err instanceof ApiError ? err.message : 'Ошибка сохранения')
     } finally { setSaving(false) }
@@ -284,6 +294,7 @@ export default function AdminPage({ isAdmin, onClose }: AdminPageProps) {
     try {
       await productsAdminApi.delete(deleteTarget.id)
       setProducts(prev => prev.filter(p => p.id!==deleteTarget.id))
+      onProductsChanged?.()
       showToast('Товар удалён'); setDeleteTarget(null)
     } catch(err) {
       showToast(err instanceof ApiError ? err.message : 'Ошибка удаления')
@@ -936,7 +947,7 @@ export default function AdminPage({ isAdmin, onClose }: AdminPageProps) {
         {formOpen && (
           <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
             className="fixed inset-0" style={{ zIndex:250, background:'rgba(0,0,0,0.45)' }}
-            onClick={()=>!saving&&setFormOpen(false)}>
+            onClick={()=>!saving && !justAdded && setFormOpen(false)}>
             <motion.div
               initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
               transition={{ duration:0.35, ease:[0.25,0.46,0.45,0.94] }}
@@ -950,7 +961,7 @@ export default function AdminPage({ isAdmin, onClose }: AdminPageProps) {
                 <h2 className="text-[20px] font-bold text-foreground tracking-tighter">
                   {editProduct ? 'Редактировать товар' : 'Новый товар'}
                 </h2>
-                <motion.button onClick={()=>!saving&&setFormOpen(false)} whileTap={{ scale:0.88 }}
+                <motion.button onClick={()=>!saving && !justAdded && setFormOpen(false)} whileTap={{ scale:0.88 }}
                   className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
                   <HugeiconsIcon icon={Cancel01Icon} size={18} color="#09090b" />
                 </motion.button>
@@ -977,13 +988,23 @@ export default function AdminPage({ isAdmin, onClose }: AdminPageProps) {
                   <div className="flex-1"><FormField label="Жиры" value={form.fats} type="number" onChange={v=>setForm(f=>({...f,fats:v}))} placeholder="15" /></div>
                 </div>
                 <FormField label="Спелость" value={form.ripeness} onChange={v=>setForm(f=>({...f,ripeness:v}))} placeholder="Спелый, готов к употреблению" />
-                <motion.button onClick={handleSave} disabled={saving}
-                  whileTap={!saving?{scale:0.97}:undefined}
-                  className="h-14 rounded-[20px] flex items-center justify-center mt-2"
-                  style={{ background: saving ? '#e4e4e7' : '#09090b' }}>
-                  {saving
-                    ? <div className="w-5 h-5 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
-                    : <span className="text-[15px] font-bold text-white">{editProduct ? 'Сохранить изменения' : 'Добавить товар'}</span>}
+                <motion.button onClick={handleSave} disabled={saving || justAdded}
+                  whileTap={!saving && !justAdded ? {scale:0.97} : undefined}
+                  className="h-14 rounded-[20px] flex items-center justify-center mt-2 transition-colors"
+                  style={{
+                    background: justAdded ? '#2e8b57'
+                              : saving    ? '#e4e4e7'
+                                          : '#09090b',
+                  }}>
+                  {saving ? (
+                    <div className="w-5 h-5 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
+                  ) : justAdded ? (
+                    <span className="text-[15px] font-bold text-white">Товар добавлен</span>
+                  ) : (
+                    <span className="text-[15px] font-bold text-white">
+                      {editProduct ? 'Сохранить изменения' : 'Добавить товар'}
+                    </span>
+                  )}
                 </motion.button>
               </div>
             </motion.div>

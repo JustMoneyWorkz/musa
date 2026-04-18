@@ -20,6 +20,7 @@ import { useFavorites } from './hooks/useFavorites'
 import { useAddresses } from './hooks/useAddresses'
 import { useOrders } from './hooks/useOrders'
 import { useAdmin } from './hooks/useAdmin'
+import { useProducts } from './hooks/useProducts'
 import AdminPage from './pages/AdminPage'
 import { Order, fetchProductCount } from './lib/api'
 
@@ -224,6 +225,7 @@ export default function App() {
   const addresses = useAddresses()
   const { orders, loading: ordersLoading, activeOrder, ordersCount, refreshOrders } = useOrders()
   const { isAdmin } = useAdmin()
+  const { products: apiProducts, refresh: refreshProducts } = useProducts()
 
   const [activeTab, setActiveTab] = useState<Tab>('home')
   const [adminOpen, setAdminOpen] = useState(false)
@@ -271,20 +273,22 @@ export default function App() {
     }
   }
 
-  const cartItems = PRODUCTS
+  // API products — единственный источник правды (PRODUCTS — демо-фолбэк до загрузки)
+  const allProducts = apiProducts.length > 0 ? apiProducts : PRODUCTS
+  const cartItems = allProducts
     .filter((p) => cartQty[p.id])
     .map((p) => ({ product: p, qty: cartQty[p.id] }))
 
   // ─── Telegram WebApp init ───────────────────────────────────────────────────
   const [tgUser, setTgUser] = useState<any>(null)
-  const [veggieCount, setVeggieCount] = useState<number | null>(null)
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp
     if (tg) { tg.ready(); tg.expand(); setTgUser(tg.initDataUnsafe?.user ?? null) }
   }, [])
-  useEffect(() => {
-    fetchProductCount('Овощи').then(setVeggieCount).catch(() => {})
-  }, [])
+
+  // Категорийные счётчики (из API products, обновляются автоматически)
+  const veggieCount = apiProducts.filter(p => p.category === 'Овощи').length
+  const setsCount   = apiProducts.filter(p => p.category === 'Наборы').length
   const msgIdx = useMemo(() => Math.floor(Math.random() * HOME_MESSAGES.length), [])
   const msgName = tgUser?.first_name || undefined
   const msgParts = HOME_MESSAGES[msgIdx](msgName)
@@ -392,9 +396,10 @@ export default function App() {
             className="grid grid-cols-2 gap-4"
           >
             {HOME_CATEGORIES.map(({ title, subtitle, icon, iconColor, bg, iconBg }) => {
-              const displaySubtitle = title === 'Овощи' && veggieCount !== null
-                ? `${veggieCount} товаров`
-                : subtitle
+              const displaySubtitle =
+                title === 'Овощи' && veggieCount > 0 ? `${veggieCount} товаров` :
+                title === 'Наборы' && setsCount > 0 ? `${setsCount} товаров` :
+                subtitle
               return (
               <motion.button
                 key={title}
@@ -456,7 +461,7 @@ export default function App() {
 
   const renderPage = () => {
     switch (activeTab) {
-      case 'catalog':   return <BrowsePage key={browseCategory ?? 'all'} products={PRODUCTS} initialCategory={browseCategory} onAddToCart={addToCart} onProductClick={(p) => setSelectedProduct(p)} cartQty={cartQty} />
+      case 'catalog':   return <BrowsePage key={browseCategory ?? 'all'} products={allProducts} initialCategory={browseCategory} onAddToCart={addToCart} onProductClick={(p) => setSelectedProduct(p)} cartQty={cartQty} />
       case 'favorites': return <CartPage items={cartItems} onIncrement={addToCart} onDecrement={decrement} onCheckout={() => setCheckoutOpen(true)} />
       case 'profile':   return <ProfilePage onMenuClick={handleProfileMenuClick} favoritesCount={favoritesCount} ordersCount={ordersCount} addressesCount={addresses.addresses.length} activeOrder={activeOrder} onOrderClick={() => setProfileSection('orders')} isAdmin={isAdmin} onAdminClick={() => setAdminOpen(true)} />
       default: return homePage
@@ -496,7 +501,7 @@ export default function App() {
             style={{ willChange: 'transform, opacity', zIndex: 90 }}
           >
             <FavoritesPage
-              products={PRODUCTS}
+              products={allProducts}
               favoriteIds={favoriteIds}
               onProductClick={(p) => { setFavoritesOpen(false); setSelectedProduct(p) }}
               onAddToCart={addToCart}
@@ -610,7 +615,7 @@ export default function App() {
           <motion.div key="admin-overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="exit"
             transition={{ y: { type: 'spring', stiffness: 300, damping: 35 }, opacity: { duration: 0.2 } }}
             className="fixed inset-0 overflow-y-auto bg-background" style={{ willChange: 'transform, opacity', zIndex: 100 }}>
-            <AdminPage isAdmin={isAdmin} onClose={() => setAdminOpen(false)} />
+            <AdminPage isAdmin={isAdmin} onClose={() => setAdminOpen(false)} onProductsChanged={refreshProducts} />
           </motion.div>
         )}
       </AnimatePresence>
