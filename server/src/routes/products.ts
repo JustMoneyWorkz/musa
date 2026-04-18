@@ -9,7 +9,7 @@ const router = Router()
 // GET /products  (public — no admin needed)
 router.get('/',
   query('category').optional().isString().trim(),
-  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('limit').optional().isInt({ min: 1, max: 500 }),
   query('offset').optional().isInt({ min: 0 }),
   handleValidation,
   async (req: AuthRequest, res, next) => {

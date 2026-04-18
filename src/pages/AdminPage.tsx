@@ -247,7 +247,10 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
     if (!isAdmin) return
     productsAdminApi.getAll()
       .then(setProducts)
-      .catch(()=>showToast('Ошибка загрузки товаров'))
+      .catch(err => {
+        const msg = err instanceof ApiError ? err.message : 'Ошибка загрузки товаров'
+        showToast(`Ошибка загрузки: ${msg}`)
+      })
       .finally(()=>setProdLoading(false))
   }, [isAdmin])
 
