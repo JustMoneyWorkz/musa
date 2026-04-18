@@ -135,41 +135,40 @@ export default function CheckoutPage({
   }
 
   const handleSubmit = async () => {
+    showToast('Обработка заказа…')                    // mгновенный UI-ответ
     console.log('[checkout] submit clicked', {
       items: items.length, phone, selectedAddrId, newAddress, payment, slotId,
     })
     if (submitting) { console.log('[checkout] already submitting — skip'); return }
 
-    // Validation
+    // ── Validation ───────────────────────────────────────────────────────────
     if (items.length === 0) { showToast('Корзина пуста'); return }
-    if (!phone.trim()) { showToast('Введите номер телефона'); return }
+    if (!phone.trim())      { showToast('Введите номер телефона'); return }
     const addrText = selectedAddrId === 'new'
       ? newAddress.trim()
       : savedAddresses.find(a => a.id === selectedAddrId)?.address ?? ''
     if (!addrText) { showToast('Введите адрес доставки'); return }
 
-    if (payment === 'transfer') { showToast('Переводом — обсудите с менеджером'); return }
-
-    setSubmitting(true)
-    console.log('[checkout] submitting to POST /api/orders')
-
-    // Save new address to profile if checked
-    if (selectedAddrId === 'new' && saveNewAddr && newAddress.trim()) {
-      await onSaveAddress({ address: newAddress.trim() })
-    }
-
     // Normalize phone: digits only, 8XXX → +7XXX, 7XXX → +7XXX
     let normPhone = phone.replace(/[^\d+]/g, '')
-    if (/^8\d{10}$/.test(normPhone)) normPhone = '+7' + normPhone.slice(1)
+    if (/^8\d{10}$/.test(normPhone))      normPhone = '+7' + normPhone.slice(1)
     else if (/^7\d{10}$/.test(normPhone)) normPhone = '+' + normPhone
     if (!/^\+?\d{10,15}$/.test(normPhone)) {
-      showToast('Некорректный номер телефона')
-      setSubmitting(false)
+      showToast('Некорректный номер: введите +7XXXXXXXXXX')
       return
     }
 
+    setSubmitting(true)
+    console.log('[checkout] submitting to POST /api/orders', { phone: normPhone, addr: addrText })
+
     try {
-      const order = await ordersApi.create({
+      // Save new address (best-effort, не блокирует заказ)
+      if (selectedAddrId === 'new' && saveNewAddr && newAddress.trim()) {
+        try { await onSaveAddress({ address: newAddress.trim() }) }
+        catch (e) { console.warn('[checkout] save addr failed:', e) }
+      }
+
+      const payload = {
         items: items.map(({ product, qty }) => ({
           product_id: parseInt(product.id),
           quantity: qty,
@@ -178,12 +177,25 @@ export default function CheckoutPage({
         phone: normPhone,
         delivery_slot_id: slotId ?? undefined,
         promo_code: promoData?.code ?? undefined,
-      })
+      }
+      console.log('[checkout] payload:', payload)
+
+      const order = await ordersApi.create(payload)
+      console.log('[checkout] order created:', order)
+
+      if (!order || typeof order.id !== 'number') {
+        showToast('Сервер вернул некорректный ответ')
+        setSubmitting(false)
+        return
+      }
+
       setOrderId(order.id)
       setConfirmed(true)
     } catch (err) {
       console.error('[checkout] order failed:', err)
-      const msg = err instanceof ApiError ? err.message : 'Ошибка создания заказа'
+      const msg = err instanceof ApiError
+        ? `Ошибка ${err.status}: ${err.message}`
+        : (err instanceof Error ? err.message : 'Неизвестная ошибка')
       showToast(msg)
       setSubmitting(false)
     }
@@ -229,7 +241,7 @@ export default function CheckoutPage({
 
   // ── Main form ───────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col min-h-screen bg-background pb-[110px]">
+    <div className="flex flex-col min-h-screen bg-background pb-[140px]">
 
       {/* Top bar */}
       <motion.div
@@ -401,10 +413,7 @@ export default function CheckoutPage({
             {(['cash', 'transfer'] as const).map(method => (
               <motion.button
                 key={method}
-                onClick={() => {
-                  setPayment(method)
-                  if (method === 'transfer') showToast('Обсудите с менеджером')
-                }}
+                onClick={() => setPayment(method)}
                 whileTap={{ scale: 0.94 }}
                 className="rounded-[16px] py-3 px-4 text-center transition-colors"
                 style={{
@@ -500,27 +509,31 @@ export default function CheckoutPage({
           </div>
         </motion.section>
 
-        {/* ── Submit button ── */}
-        <motion.button
-          variants={itemVariants}
-          onClick={handleSubmit}
-          disabled={submitting}
-          whileTap={!submitting ? { scale: 0.97 } : undefined}
-          className="h-14 rounded-[20px] flex items-center justify-between px-5 w-full"
-          style={{ background: submitting ? '#e4e4e7' : '#09090b' }}
-        >
-          <span className="text-base font-bold" style={{ color: submitting ? '#a1a1aa' : '#fff' }}>
-            {submitting ? 'Создаём заказ…' : 'Оставить заявку'}
-          </span>
-          {!submitting && (
-            <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold text-white leading-none"
-                  style={{ background: 'rgba(255,255,255,0.12)' }}>
-              {total} ₽
-            </span>
-          )}
-        </motion.button>
-
       </motion.div>
+
+      {/* ── Submit button (фиксированная, гарантированно кликабельна) ── */}
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={submitting}
+        className="fixed left-5 right-5 h-14 rounded-[20px] flex items-center justify-between px-5"
+        style={{
+          bottom: 24,
+          zIndex: 95,
+          background: submitting ? '#3f3f46' : '#09090b',
+          color: '#fff',
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <span className="text-base font-bold">
+          {submitting ? 'Создаём заказ…' : 'Оставить заявку'}
+        </span>
+        <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold leading-none"
+              style={{ background: 'rgba(255,255,255,0.16)' }}>
+          {total} ₽
+        </span>
+      </button>
 
       {/* Local toast */}
       <AnimatePresence>
@@ -530,7 +543,7 @@ export default function CheckoutPage({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="fixed left-5 right-5 text-center py-3.5 rounded-[16px] text-[14px] font-bold text-white"
-            style={{ bottom: '112px', zIndex: 999, background: '#09090b' }}
+            style={{ bottom: 100, zIndex: 9999, background: '#09090b' }}
           >
             {toast}
           </motion.div>
