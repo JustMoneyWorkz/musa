@@ -93,7 +93,7 @@ interface ProfilePageProps {
   onMenuClick?: (id: string) => void
   favoritesCount?: number
   ordersCount?: number
-  addressesCount?: number
+  cartCount?: number
   activeOrder?: Order | null
   onOrderClick?: () => void
   isAdmin?: boolean
@@ -101,13 +101,13 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({
-  onMenuClick, favoritesCount = 0, ordersCount = 0, addressesCount = 0, activeOrder, onOrderClick,
+  onMenuClick, favoritesCount = 0, ordersCount = 0, cartCount = 0, activeOrder, onOrderClick,
   isAdmin, onAdminClick,
 }: ProfilePageProps) {
   const STATS = [
     { value: String(ordersCount), label: 'Заказов' },
     { value: String(favoritesCount), label: 'Избранное' },
-    { value: String(addressesCount), label: 'Сохранено' },
+    { value: String(cartCount), label: 'Сохранено' },
   ]
 
   return (

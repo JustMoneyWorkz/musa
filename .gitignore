@@ -5,3 +5,5 @@ dist
 .env.production
 .vercel
 .claude
+
+.vercel

@@ -11,6 +11,7 @@ import {
   StarIcon,
   DeliveryBox01Icon,
   Location01Icon,
+  Tick01Icon,
 } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
 
@@ -20,6 +21,7 @@ interface ProductPageProps {
   onAddToCart: (id: string, qty?: number) => void
   onToggleFavorite?: (id: string) => void
   favoriteIds?: string[]
+  cartQty?: Record<string, number>
 }
 
 const NUTRITION = [
@@ -29,8 +31,12 @@ const NUTRITION = [
   { value: 'Спелый',  label: 'Зрелость' },
 ]
 
-export default function ProductPage({ product, onClose, onAddToCart, onToggleFavorite, favoriteIds = [] }: ProductPageProps) {
+export default function ProductPage({ product, onClose, onAddToCart, onToggleFavorite, favoriteIds = [], cartQty = {} }: ProductPageProps) {
   const isFavorite = favoriteIds.includes(product.id)
+  const inCartQty = cartQty[product.id] ?? 0
+  const isInCart = inCartQty > 0
+  const isOutOfStock = product.inStock === false
+  const disabled = isOutOfStock || isInCart
   const [qty, setQty] = useState(1)
   const images = product.images?.length ? product.images : [product.imageSrc]
   const [imgIndex, setImgIndex] = useState(0)
@@ -278,20 +284,23 @@ export default function ProductPage({ product, onClose, onAddToCart, onToggleFav
           </div>
 
           <motion.button
-            onClick={() => { if (product.inStock === false) return; onAddToCart(product.id, qty) }}
-            whileTap={product.inStock !== false ? { scale: 0.97 } : undefined}
+            onClick={() => { if (disabled) return; onAddToCart(product.id, qty) }}
+            whileTap={!disabled ? { scale: 0.97 } : undefined}
             className="h-14 rounded-[20px] flex items-center justify-between px-5 w-full relative overflow-hidden"
-            style={{ background: product.inStock === false ? '#e4e4e7' : '#09090b' }}
+            style={{
+              background: isOutOfStock ? '#e4e4e7' : isInCart ? '#2e8b57' : '#09090b',
+            }}
           >
-            <span className="text-base font-bold" style={{ color: product.inStock === false ? '#a1a1aa' : '#ffffff' }}>
-              {product.inStock === false ? 'Нет в наличии' : 'Добавить в корзину'}
+            <span className="text-base font-bold flex items-center gap-2" style={{ color: isOutOfStock ? '#a1a1aa' : '#ffffff' }}>
+              {isInCart && <HugeiconsIcon icon={Tick01Icon} size={18} color="#ffffff" strokeWidth={2.8} />}
+              {isOutOfStock ? 'Нет в наличии' : isInCart ? `В корзине · ${inCartQty} шт.` : 'Добавить в корзину'}
             </span>
-            {product.inStock !== false && (
+            {!isOutOfStock && !isInCart && (
               <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold text-white leading-none" style={{ background: 'rgba(255,255,255,0.12)' }}>
                 {product.price * qty} ₽
               </span>
             )}
-            {product.inStock === false && (
+            {isOutOfStock && (
               <div className="absolute inset-0 rounded-[20px] pointer-events-none" style={{ background: 'rgba(255,255,255,0.35)' }} />
             )}
           </motion.button>

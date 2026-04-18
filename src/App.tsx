@@ -463,7 +463,7 @@ export default function App() {
     switch (activeTab) {
       case 'catalog':   return <BrowsePage key={browseCategory ?? 'all'} products={allProducts} initialCategory={browseCategory} onAddToCart={addToCart} onProductClick={(p) => setSelectedProduct(p)} cartQty={cartQty} />
       case 'favorites': return <CartPage items={cartItems} onIncrement={addToCart} onDecrement={decrement} onCheckout={() => setCheckoutOpen(true)} />
-      case 'profile':   return <ProfilePage onMenuClick={handleProfileMenuClick} favoritesCount={favoritesCount} ordersCount={ordersCount} addressesCount={addresses.addresses.length} activeOrder={activeOrder} onOrderClick={() => setProfileSection('orders')} isAdmin={isAdmin} onAdminClick={() => setAdminOpen(true)} />
+      case 'profile':   return <ProfilePage onMenuClick={handleProfileMenuClick} favoritesCount={favoritesCount} ordersCount={ordersCount} cartCount={cartCount} activeOrder={activeOrder} onOrderClick={() => setProfileSection('orders')} isAdmin={isAdmin} onAdminClick={() => setAdminOpen(true)} />
       default: return homePage
     }
   }
@@ -506,6 +506,7 @@ export default function App() {
               onProductClick={(p) => { setFavoritesOpen(false); setSelectedProduct(p) }}
               onAddToCart={addToCart}
               onClose={() => setFavoritesOpen(false)}
+              cartQty={cartQty}
             />
           </motion.div>
         )}
@@ -530,6 +531,7 @@ export default function App() {
               onAddToCart={(id, qty) => { addToCart(id, qty); setSelectedProduct(null); handleNavigate('favorites') }}
               onToggleFavorite={toggleFavorite}
               favoriteIds={favoriteIds}
+              cartQty={cartQty}
             />
           </motion.div>
         )}

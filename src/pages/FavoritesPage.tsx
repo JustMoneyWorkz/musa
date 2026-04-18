@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon, PlusSignIcon, FavouriteIcon } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
@@ -9,6 +9,7 @@ interface FavoritesPageProps {
   onProductClick: (product: Product) => void
   onAddToCart: (id: string) => void
   onClose: () => void
+  cartQty?: Record<string, number>
 }
 
 const gridVariants = {
@@ -20,7 +21,7 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
-export default function FavoritesPage({ products, favoriteIds, onProductClick, onAddToCart, onClose }: FavoritesPageProps) {
+export default function FavoritesPage({ products, favoriteIds, onProductClick, onAddToCart, onClose, cartQty = {} }: FavoritesPageProps) {
   const favProducts = products.filter(p => favoriteIds.includes(p.id))
 
   return (
@@ -131,11 +132,44 @@ export default function FavoritesPage({ products, favoriteIds, onProductClick, o
                     )}
                   </div>
                   <motion.div
-                    onClick={(e) => { e.stopPropagation(); onAddToCart(product.id) }}
-                    className="w-10 h-10 rounded-full bg-foreground flex items-center justify-center shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (product.inStock === false || (cartQty[product.id] ?? 0) > 0) return
+                      onAddToCart(product.id)
+                    }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden${(product.inStock === false || (cartQty[product.id] ?? 0) > 0) ? ' pointer-events-none' : ''}`}
+                    animate={{
+                      backgroundColor: product.inStock === false
+                        ? '#e4e4e7'
+                        : (cartQty[product.id] ?? 0) > 0 ? '#2e8b57' : '#09090b'
+                    }}
+                    transition={{ duration: 0.25 }}
                     whileTap={{ scale: 0.85 }}
                   >
-                    <HugeiconsIcon icon={PlusSignIcon} size={18} color="#ffffff" strokeWidth={2.5} />
+                    <AnimatePresence mode="wait" initial={false}>
+                      {(cartQty[product.id] ?? 0) > 0 ? (
+                        <motion.span
+                          key="check"
+                          initial={{ scale: 0, rotate: -45, opacity: 0 }}
+                          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                          exit={{ scale: 0, rotate: 45, opacity: 0 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                          style={{ color: '#ffffff', fontSize: 17, fontWeight: 800, lineHeight: 1 }}
+                        >
+                          ✓
+                        </motion.span>
+                      ) : (
+                        <motion.div
+                          key="plus"
+                          initial={{ scale: 0, rotate: 45, opacity: 0 }}
+                          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                          exit={{ scale: 0, rotate: -45, opacity: 0 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                        >
+                          <HugeiconsIcon icon={PlusSignIcon} size={18} color={product.inStock === false ? '#a1a1aa' : '#ffffff'} strokeWidth={2.5} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 </div>
               </motion.button>
