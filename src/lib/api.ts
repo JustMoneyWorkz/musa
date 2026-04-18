@@ -180,6 +180,8 @@ export interface Order {
   promo_id: number | null
   promo_code: string | null     // from JOIN with promo_codes
   promo_discount: number | null // from JOIN with promo_codes (only in GET /:id)
+  payment_method: 'cash' | 'transfer'
+  delivery_fee: number
   total: number
   created_at: string
   items: OrderItem[]
@@ -196,6 +198,7 @@ export const ordersApi = {
     phone: string
     delivery_slot_id?: number
     promo_code?: string
+    payment_method?: 'cash' | 'transfer'
   }) => apiFetch<Order>('/api/orders', { method: 'POST', body: JSON.stringify(data) }),
 
   confirm: (id: number) =>
@@ -287,6 +290,8 @@ export interface AdminOrder {
   slot_time: string | null
   promo_id: number | null
   promo_code: string | null
+  payment_method: 'cash' | 'transfer'
+  delivery_fee: number
   total: number
   created_at: string
   items: { product_id: number; quantity: number; price: number; name: string }[]

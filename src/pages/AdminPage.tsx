@@ -18,6 +18,7 @@ import {
   DeliveryBox01Icon,
   DiscountTag01Icon,
   Calendar03Icon,
+  Cash01Icon,
 } from '@hugeicons/core-free-icons'
 import {
   AdminProduct, AdminOrder, AdminPromo, AdminDeliverySlot,
@@ -935,6 +936,11 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
                   {selectedOrder.slot_date && selectedOrder.slot_time && (
                     <InfoRow icon={Clock01Icon} label="Слот"
                       value={`${formatSlotDate(selectedOrder.slot_date)} · ${selectedOrder.slot_time}`} />
+                  )}
+                  <InfoRow icon={Cash01Icon} label="Оплата"
+                    value={selectedOrder.payment_method === 'transfer' ? 'Переводом' : 'Наличные'} />
+                  {selectedOrder.delivery_fee > 0 && (
+                    <InfoRow icon={DeliveryBox01Icon} label="Доставка" value={`${selectedOrder.delivery_fee} ₽`} />
                   )}
                   {selectedOrder.promo_code && (
                     <InfoRow icon={Package01Icon} label="Промокод" value={selectedOrder.promo_code} green />

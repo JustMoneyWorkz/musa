@@ -3,6 +3,9 @@ dist
 .env
 .env.local
 .env.production
+.env.migrate
+server/.env
+server/.env.*
 .vercel
 .claude
 

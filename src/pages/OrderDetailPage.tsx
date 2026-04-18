@@ -173,6 +173,12 @@ export default function OrderDetailPage({ order: initialOrder, onClose, onOrderU
           </div>
           {/* Totals */}
           <div className="flex flex-col gap-1.5 pt-2 border-t border-foreground/6">
+            {order.delivery_fee > 0 && (
+              <div className="flex justify-between">
+                <span className="text-[13px] font-medium text-muted-foreground">Доставка</span>
+                <span className="text-[13px] font-bold text-foreground">{order.delivery_fee} ₽</span>
+              </div>
+            )}
             {order.promo_code && (
               <div className="flex justify-between">
                 <span className="text-[13px] font-medium text-muted-foreground">
@@ -209,7 +215,7 @@ export default function OrderDetailPage({ order: initialOrder, onClose, onOrderU
               value={`${formatSlotDate(order.slot_date)} · ${order.slot_time}`}
             />
           )}
-          <InfoRow icon={Cash01Icon} label="Оплата" value="Наличные" />
+          <InfoRow icon={Cash01Icon} label="Оплата" value={order.payment_method === 'transfer' ? 'Переводом' : 'Наличные'} />
           {order.promo_code && (
             <InfoRow icon={DiscountTag01Icon} label="Промокод" value={order.promo_code} green />
           )}

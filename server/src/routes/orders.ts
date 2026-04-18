@@ -8,6 +8,10 @@ const router = Router()
 
 const VALID_STATUSES = ['pending','confirmed','assembling','delivering','delivered','cancelled']
 
+// Server-side truth for delivery fee. Frontend (CheckoutPage) отображает ту же константу.
+// Если захотим сделать конфигурируемым — сюда добавить чтение из env/таблицы settings.
+const DELIVERY_FEE = 299
+
 // GET /orders/slots — available delivery slots (before /:id to avoid conflict)
 router.get('/slots', async (_req: AuthRequest, res, next) => {
   try {
@@ -89,9 +93,11 @@ router.post('/',
   body('phone').isMobilePhone('any'),
   body('delivery_slot_id').optional().isInt({ min: 1 }),
   body('promo_code').optional().isString().trim().isLength({ max: 32 }),
+  body('payment_method').optional().isIn(['cash', 'transfer']),
   handleValidation,
   async (req: AuthRequest, res, next) => {
     const { items, address, phone, delivery_slot_id, promo_code } = req.body
+    const payment_method: 'cash' | 'transfer' = req.body.payment_method ?? 'cash'
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -105,8 +111,8 @@ router.post('/',
       const prodMap: Record<number, { price: number; price_discounted: number | null; stock: number }> = {}
       prodRes.rows.forEach((p: { id: number; price: number; price_discounted: number | null; stock: number }) => { prodMap[p.id] = p })
 
-      // Validate stock & compute total
-      let total = 0
+      // Validate stock & compute subtotal
+      let subtotal = 0
       for (const item of items) {
         const prod = prodMap[item.product_id]
         if (!prod) {
@@ -117,11 +123,12 @@ router.post('/',
           await client.query('ROLLBACK')
           return res.status(400).json({ error: `Insufficient stock for product ${item.product_id}` })
         }
-        total += (prod.price_discounted ?? prod.price) * item.quantity
+        subtotal += (prod.price_discounted ?? prod.price) * item.quantity
       }
 
-      // Validate promo
+      // Validate promo & compute discount
       let promoId: number | null = null
+      let discountAmount = 0
       if (promo_code) {
         const promoRes = await client.query(
           `SELECT id, discount_percent FROM promo_codes
@@ -134,8 +141,11 @@ router.post('/',
         }
         const discount = promoRes.rows[0].discount_percent
         promoId = promoRes.rows[0].id
-        total = Math.round(total * (1 - discount / 100))
+        discountAmount = Math.round(subtotal * discount / 100)
       }
+
+      // Final total matches frontend formula: subtotal + delivery - discount
+      const total = subtotal + DELIVERY_FEE - discountAmount
 
       // Validate delivery slot
       if (delivery_slot_id) {
@@ -151,9 +161,11 @@ router.post('/',
 
       // Create order
       const orderRes = await client.query(
-        `INSERT INTO orders(user_id, address, phone, delivery_slot_id, promo_id, total)
-         VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
-        [req.telegramId, address, phone, delivery_slot_id ?? null, promoId, total]
+        `INSERT INTO orders(user_id, address, phone, delivery_slot_id, promo_id,
+                            total, payment_method, delivery_fee)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [req.telegramId, address, phone, delivery_slot_id ?? null, promoId,
+         total, payment_method, DELIVERY_FEE]
       )
       const order = orderRes.rows[0]
 

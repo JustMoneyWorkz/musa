@@ -188,6 +188,7 @@ export default function CheckoutPage({
         phone: normPhone,
         delivery_slot_id: slotId ?? undefined,
         promo_code: promoData?.code ?? undefined,
+        payment_method: payment,
       }
       console.log('[checkout] payload:', payload)
 
