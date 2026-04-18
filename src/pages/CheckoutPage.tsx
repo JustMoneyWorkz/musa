@@ -252,7 +252,7 @@ export default function CheckoutPage({
 
   // ── Main form ───────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col min-h-screen bg-background pb-[140px]">
+    <div className="flex flex-col min-h-screen bg-background pb-[160px]">
 
       {/* Top bar */}
       <motion.div
@@ -538,29 +538,41 @@ export default function CheckoutPage({
 
       </motion.div>
 
-      {/* ── Submit button (фиксированная, гарантированно кликабельна) ── */}
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={submitting}
-        className="fixed left-5 right-5 h-14 rounded-[20px] flex items-center justify-between px-5"
+      {/* ── Submit button wrapper (фикс + градиентная подложка, чтобы контент
+              плавно затухал под кнопкой, а не обрывался резко) ── */}
+      <div
+        className="fixed left-0 right-0 pointer-events-none"
         style={{
-          bottom: 24,
+          bottom: 0,
           zIndex: 95,
-          background: submitting ? '#3f3f46' : '#09090b',
-          color: '#fff',
-          touchAction: 'manipulation',
-          WebkitTapHighlightColor: 'transparent',
+          paddingTop: 32,
+          paddingBottom: 24,
+          paddingLeft: 20,
+          paddingRight: 20,
+          background: 'linear-gradient(to top, var(--background) 55%, transparent 100%)',
         }}
       >
-        <span className="text-base font-bold">
-          {submitting ? 'Создаём заказ…' : 'Оставить заявку'}
-        </span>
-        <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold leading-none"
-              style={{ background: 'rgba(255,255,255,0.16)' }}>
-          {total} ₽
-        </span>
-      </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="pointer-events-auto w-full h-14 rounded-[20px] flex items-center justify-between px-5"
+          style={{
+            background: submitting ? '#3f3f46' : '#09090b',
+            color: '#fff',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <span className="text-base font-bold">
+            {submitting ? 'Создаём заказ…' : 'Оставить заявку'}
+          </span>
+          <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold leading-none"
+                style={{ background: 'rgba(255,255,255,0.16)' }}>
+            {total} ₽
+          </span>
+        </button>
+      </div>
 
       {/* Local toast */}
       <AnimatePresence>
