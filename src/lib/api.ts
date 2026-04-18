@@ -291,6 +291,41 @@ export const adminPromosApi = {
     apiFetch<{ deleted: number; code: string }>(`/api/admin/promos/${id}`, { method: 'DELETE' }),
 }
 
+// ─── Upload (admin) ──────────────────────────────────────────────────────────
+
+export const uploadApi = {
+  productImage: async (file: File): Promise<{ url: string; path: string }> => {
+    const form = new FormData()
+    form.append('file', file)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    try {
+      const res = await fetch(`${BASE}/api/upload/product-image`, {
+        method: 'POST',
+        signal: ctrl.signal,
+        headers: {
+          // НЕ ставим Content-Type — браузер сам выставит multipart boundary
+          Authorization: `tma ${getInitData()}`,
+        },
+        body: form,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any))
+        throw new ApiError(res.status, body?.error ?? res.statusText)
+      }
+      return res.json()
+    } catch (err) {
+      if (err instanceof ApiError) throw err
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw new ApiError(0, 'Загрузка прервана (таймаут 30с)')
+      }
+      throw new ApiError(0, err instanceof Error ? err.message : 'Ошибка загрузки')
+    } finally {
+      clearTimeout(timer)
+    }
+  },
+}
+
 export const productsAdminApi = {
   getAll: () => apiFetch<AdminProduct[]>('/api/products?limit=200'),
   create: (data: Omit<AdminProduct, 'id' | 'created_at'>) =>

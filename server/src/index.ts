@@ -11,6 +11,7 @@ import cartRouter     from './routes/cart'
 import favoritesRouter from './routes/favorites'
 import promoRouter    from './routes/promo'
 import adminRouter    from './routes/admin'
+import uploadRouter   from './routes/upload'
 
 const app  = express()
 const PORT = parseInt(process.env.PORT ?? '3000', 10)
@@ -49,6 +50,7 @@ app.use('/api/cart',      cartRouter)
 app.use('/api/favorites', favoritesRouter)
 app.use('/api/promo',     promoRouter)
 app.use('/api/admin',     adminRouter)
+app.use('/api/upload',    uploadRouter)
 
 // ─── 404 ─────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }))

@@ -23,7 +23,7 @@ import {
 import {
   AdminProduct, AdminOrder, AdminPromo, AdminDeliverySlot,
   productsAdminApi, adminOrdersApi, adminPromosApi, adminSlotsApi,
-  ApiError,
+  uploadApi, ApiError,
 } from '../lib/api'
 
 interface AdminPageProps {
@@ -1299,6 +1299,33 @@ function ImagesField({ value, onChange }: { value: string[]; onChange: (v: strin
   const [draft, setDraft] = useState('')
   const [validity, setValidity] = useState<Record<string, 'ok'|'err'|'loading'>>({})
   const [draftError, setDraftError] = useState<string|null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // очищаем input сразу — чтобы можно было загрузить тот же файл повторно
+    e.target.value = ''
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      setDraftError('Файл слишком большой (максимум 5 MB)')
+      return
+    }
+    setUploading(true)
+    setDraftError(null)
+    try {
+      const { url } = await uploadApi.productImage(file)
+      if (value.includes(url)) {
+        setDraftError('Файл уже загружен')
+      } else {
+        onChange([...value, url])
+      }
+    } catch (err) {
+      setDraftError(err instanceof ApiError ? err.message : 'Ошибка загрузки')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   // Probe each URL once
   useEffect(() => {
@@ -1408,17 +1435,47 @@ function ImagesField({ value, onChange }: { value: string[]; onChange: (v: strin
           onKeyDown={e=>{ if (e.key==='Enter') { e.preventDefault(); handleAdd() } }}
           placeholder="https://example.com/image.jpg"
           className={`${base} h-11 flex-1`}
+          disabled={uploading}
         />
-        <button type="button" onClick={handleAdd}
-          className="h-11 px-4 rounded-[16px] bg-foreground text-white text-[13px] font-bold flex items-center gap-1.5">
+        <button type="button" onClick={handleAdd} disabled={uploading}
+          className="h-11 px-4 rounded-[16px] bg-foreground text-white text-[13px] font-bold flex items-center gap-1.5 disabled:opacity-50">
           <HugeiconsIcon icon={PlusSignIcon} size={14} color="#ffffff" />
-          Добавить
+          URL
         </button>
       </div>
+
+      {/* File upload button */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="h-11 px-4 rounded-[16px] bg-muted text-foreground text-[13px] font-bold flex items-center justify-center gap-2 border-2 border-dashed disabled:opacity-60"
+        style={{ borderColor: uploading ? '#a1a1aa' : '#d4d4d8' }}
+      >
+        {uploading ? (
+          <>
+            <div className="w-4 h-4 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
+            Загрузка…
+          </>
+        ) : (
+          <>
+            <HugeiconsIcon icon={PlusSignIcon} size={14} color="#09090b" />
+            Загрузить с устройства
+          </>
+        )}
+      </button>
+
       {draftError && <p className="text-[11px] font-medium px-1" style={{ color:'#ef4444' }}>{draftError}</p>}
       {value.length === 0 && !draftError && (
         <p className="text-[11px] font-medium text-muted-foreground px-1">
-          Первое изображение будет главным. Поддерживаются прямые URL на картинки (jpg/png/webp).
+          Первое изображение будет главным. Можно загрузить файл с устройства (до 5 MB) или вставить прямой URL.
         </p>
       )}
     </div>
