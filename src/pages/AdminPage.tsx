@@ -615,15 +615,18 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
             {(['all', ...ALL_STATUSES] as const).map(s => {
               const isAll = s === 'all'
               const active = statusFilter === s
-              const color = isAll ? '#09090b' : STATUS_COLOR[s as OrderStatus]
-              const bg    = isAll ? 'rgba(9,9,11,0.08)' : STATUS_BG[s as OrderStatus]
+              const accent = isAll ? '#09090b' : STATUS_COLOR[s as OrderStatus]
+              // Для неактивного `pending` берём тёмный текст на светлом фоне (как у `all`) —
+              // иначе серый текст на серой подложке сливается до нечитаемости.
+              const inactiveText = (isAll || s === 'pending') ? '#09090b' : accent
+              const inactiveBg   = (isAll || s === 'pending') ? 'rgba(9,9,11,0.08)' : STATUS_BG[s as OrderStatus]
               return (
                 <motion.button key={s} onClick={()=>setStatusFilter(s)} whileTap={{ scale:0.94 }}
                   className="shrink-0 text-[12px] font-bold px-3 py-1.5 rounded-full transition-all"
                   style={{
-                    background: active ? color : bg,
-                    color: active ? '#fff' : color,
-                    border: `1.5px solid ${active ? color : 'transparent'}`,
+                    background: active ? accent : inactiveBg,
+                    color: active ? '#fff' : inactiveText,
+                    border: `1.5px solid ${active ? accent : 'transparent'}`,
                   }}>
                   {isAll ? 'Все' : STATUS_LABEL[s as OrderStatus]}
                 </motion.button>
