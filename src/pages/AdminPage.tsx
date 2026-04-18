@@ -17,10 +17,11 @@ import {
   TelegramIcon,
   DeliveryBox01Icon,
   DiscountTag01Icon,
+  Calendar03Icon,
 } from '@hugeicons/core-free-icons'
 import {
-  AdminProduct, AdminOrder, AdminPromo,
-  productsAdminApi, adminOrdersApi, adminPromosApi,
+  AdminProduct, AdminOrder, AdminPromo, AdminDeliverySlot,
+  productsAdminApi, adminOrdersApi, adminPromosApi, adminSlotsApi,
   ApiError,
 } from '../lib/api'
 
@@ -112,6 +113,24 @@ function formatPromoDate(isoStr: string): string {
   return new Date(isoStr).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' })
 }
 
+// ── Slot helpers ─────────────────────────────────────────────────────────────
+interface SlotForm {
+  date: string         // YYYY-MM-DD
+  time_range: string   // '09:00 — 12:00'
+  districts: string    // comma-separated
+}
+const EMPTY_SLOT_FORM: SlotForm = { date:'', time_range:'', districts:'' }
+
+function formatFullSlotDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const today = new Date(); today.setHours(0,0,0,0)
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+  if (date.getTime() === today.getTime()) return 'Сегодня'
+  if (date.getTime() === tomorrow.getTime()) return 'Завтра'
+  return date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'short' })
+}
+
 // ── Form state (products) ────────────────────────────────────────────────────
 interface FormState {
   name: string; price: string; price_discounted: string; weight: string
@@ -181,7 +200,7 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
   }
 
   // ── tab ──
-  const [view, setView] = useState<'products'|'orders'|'promos'>('products')
+  const [view, setView] = useState<'products'|'orders'|'promos'|'slots'>('products')
 
   // ── products state ──
   const [products,   setProducts]   = useState<AdminProduct[]>([])
@@ -213,6 +232,16 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
   const [promoDeleteTarget,setPromoDeleteTarget] = useState<AdminPromo|null>(null)
   const [deletingPromo,setDeletingPromo] = useState(false)
 
+  // ── slots state ──
+  const [slots,        setSlots]        = useState<AdminDeliverySlot[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [slotsFetched, setSlotsFetched] = useState(false)
+  const [slotFormOpen, setSlotFormOpen] = useState(false)
+  const [slotForm,     setSlotForm]     = useState<SlotForm>(EMPTY_SLOT_FORM)
+  const [savingSlot,   setSavingSlot]   = useState(false)
+  const [slotDeleteTarget,setSlotDeleteTarget] = useState<AdminDeliverySlot|null>(null)
+  const [deletingSlot, setDeletingSlot] = useState(false)
+
   // ── load products ──
   useEffect(() => {
     if (!isAdmin) return
@@ -241,6 +270,16 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
       .catch(()=>showToast('Ошибка загрузки промокодов'))
       .finally(()=>setPromosLoading(false))
   }, [isAdmin, view, promosFetched])
+
+  // ── load slots (lazy) ──
+  useEffect(() => {
+    if (!isAdmin || view !== 'slots' || slotsFetched) return
+    setSlotsLoading(true)
+    adminSlotsApi.getAll()
+      .then(data => { setSlots(data); setSlotsFetched(true) })
+      .catch(()=>showToast('Ошибка загрузки слотов'))
+      .finally(()=>setSlotsLoading(false))
+  }, [isAdmin, view, slotsFetched])
 
   // ── filtered products ──
   const q = search.toLowerCase()
@@ -357,6 +396,46 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
     } finally { setDeletingPromo(false) }
   }
 
+  // ── slot actions ──
+  const handleSaveSlot = async () => {
+    if (savingSlot) return
+    const { date, time_range, districts } = slotForm
+    if (!date || !time_range.trim() || !districts.trim()) {
+      showToast('Заполните все поля'); return
+    }
+    const districtsArr = districts.split(',').map(s => s.trim()).filter(Boolean)
+    if (districtsArr.length === 0) { showToast('Укажите хотя бы один район'); return }
+    setSavingSlot(true)
+    try {
+      const created = await adminSlotsApi.create({
+        date, time_range: time_range.trim(), districts: districtsArr,
+      })
+      setSlots(prev => {
+        const next = [...prev, created]
+        next.sort((a, b) => a.date.localeCompare(b.date) || a.time_range.localeCompare(b.time_range))
+        return next
+      })
+      setSlotFormOpen(false)
+      setSlotForm(EMPTY_SLOT_FORM)
+      showToast('Слот создан')
+    } catch(err) {
+      showToast(err instanceof ApiError ? err.message : 'Ошибка создания слота')
+    } finally { setSavingSlot(false) }
+  }
+
+  const handleDeleteSlot = async () => {
+    if (!slotDeleteTarget || deletingSlot) return
+    setDeletingSlot(true)
+    try {
+      await adminSlotsApi.delete(slotDeleteTarget.id)
+      setSlots(prev => prev.filter(s => s.id !== slotDeleteTarget.id))
+      showToast('Слот удалён')
+      setSlotDeleteTarget(null)
+    } catch(err) {
+      showToast(err instanceof ApiError ? err.message : 'Ошибка удаления')
+    } finally { setDeletingSlot(false) }
+  }
+
   // ── contact ──
   const handleContact = () => {
     if (!selectedOrder) return
@@ -419,6 +498,12 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
             whileTap={{ scale:0.88 }} aria-label="Добавить промокод">
             <HugeiconsIcon icon={PlusSignIcon} size={20} color="#ffffff" />
           </motion.button>
+        ) : view === 'slots' ? (
+          <motion.button onClick={()=>setSlotFormOpen(true)}
+            className="w-10 h-10 rounded-full bg-foreground flex items-center justify-center"
+            whileTap={{ scale:0.88 }} aria-label="Добавить слот">
+            <HugeiconsIcon icon={PlusSignIcon} size={20} color="#ffffff" />
+          </motion.button>
         ) : (
           <motion.button onClick={()=>{ setOrdersFetched(false) }}
             className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"
@@ -431,18 +516,21 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
       {/* ── Tab switcher ── */}
       <div className="px-5 pb-3">
         <div className="flex bg-muted rounded-[16px] p-1 gap-1">
-          {(['products','orders','promos'] as const).map(tab => (
+          {(['products','orders','promos','slots'] as const).map(tab => (
             <motion.button
               key={tab}
               onClick={() => setView(tab)}
-              className="flex-1 h-9 rounded-[12px] text-[14px] font-bold transition-colors"
+              className="flex-1 h-9 rounded-[12px] text-[13px] font-bold transition-colors"
               style={{
                 background: view===tab ? '#09090b' : 'transparent',
                 color: view===tab ? '#ffffff' : '#9aa3ae',
               }}
               whileTap={{ scale:0.97 }}
             >
-              {tab==='products' ? 'Товары' : tab==='orders' ? 'Заказы' : 'Промо'}
+              {tab==='products' ? 'Товары'
+                : tab==='orders' ? 'Заказы'
+                : tab==='promos' ? 'Промо'
+                : 'Слоты'}
             </motion.button>
           ))}
         </div>
@@ -645,6 +733,76 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
                   </motion.div>
                 )
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════ SLOTS VIEW ══════════ */}
+      {view === 'slots' && (
+        <div className="px-5 flex flex-col gap-4">
+          <span className="text-[13px] font-medium text-muted-foreground px-1">
+            {slotsLoading ? 'Загрузка…' : `${slots.length} слотов доставки`}
+          </span>
+
+          {slotsLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-6 h-6 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
+            </div>
+          ) : slots.length === 0 ? (
+            <div className="rounded-[20px] p-8 bg-muted flex flex-col items-center gap-3 text-center">
+              <HugeiconsIcon icon={Calendar03Icon} size={28} color="#9aa3ae" />
+              <p className="text-[15px] font-bold text-foreground">Слотов нет</p>
+              <p className="text-[13px] font-medium text-muted-foreground">Нажмите + чтобы добавить</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {(() => {
+                // group by date
+                const groups: Record<string, AdminDeliverySlot[]> = {}
+                for (const s of slots) {
+                  if (!groups[s.date]) groups[s.date] = []
+                  groups[s.date].push(s)
+                }
+                const dates = Object.keys(groups).sort()
+                return dates.map((date, di) => (
+                  <motion.div key={date} custom={di} variants={sv} initial="hidden" animate="visible"
+                    className="flex flex-col gap-2">
+                    <p className="text-[13px] font-bold text-muted-foreground px-1 capitalize">
+                      {formatFullSlotDate(date)}
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {groups[date].map(slot => (
+                        <div key={slot.id} className="flex items-center gap-3 rounded-[18px] p-4 bg-muted">
+                          <div className="w-11 h-11 rounded-[14px] flex items-center justify-center shrink-0"
+                               style={{ background: slot.available
+                                 ? 'linear-gradient(135deg,#0b7a43,#2e8b57)'
+                                 : 'linear-gradient(135deg,#a1a1aa,#71717a)' }}>
+                            <HugeiconsIcon icon={Clock01Icon} size={20} color="#ffffff" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-[14px] font-bold text-foreground tracking-tighter">{slot.time_range}</p>
+                              {!slot.available && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                      style={{ background:'rgba(161,161,170,0.15)', color:'#71717a' }}>занято</span>
+                              )}
+                            </div>
+                            <p className="text-[12px] font-medium text-muted-foreground mt-0.5 truncate">
+                              {slot.districts.join(' · ')}
+                            </p>
+                          </div>
+                          <motion.button onClick={()=>setSlotDeleteTarget(slot)} whileTap={{ scale:0.88 }}
+                            className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0"
+                            style={{ background:'rgba(239,68,68,0.10)' }} aria-label="Удалить слот">
+                            <HugeiconsIcon icon={Delete01Icon} size={16} color="#ef4444" />
+                          </motion.button>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                ))
+              })()}
             </div>
           )}
         </div>
@@ -935,6 +1093,88 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
                   {savingPromo
                     ? <div className="w-5 h-5 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
                     : <span className="text-[15px] font-bold text-white">Создать промокод</span>}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Slot delete confirm ── */}
+      <AnimatePresence>
+        {slotDeleteTarget && (
+          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            className="fixed inset-0 flex items-end justify-center pb-8 px-5"
+            style={{ zIndex:240, background:'rgba(0,0,0,0.45)' }}
+            onClick={()=>!deletingSlot&&setSlotDeleteTarget(null)}>
+            <motion.div
+              initial={{ y:60, opacity:0 }} animate={{ y:0, opacity:1 }} exit={{ y:60, opacity:0 }}
+              transition={{ duration:0.28, ease:[0.25,0.46,0.45,0.94] }}
+              onClick={e=>e.stopPropagation()}
+              className="w-full rounded-[24px] p-6 flex flex-col gap-4 bg-background">
+              <div className="text-center">
+                <p className="text-[18px] font-bold text-foreground tracking-tighter mb-1">Удалить слот?</p>
+                <p className="text-[14px] font-medium text-muted-foreground">
+                  «{formatFullSlotDate(slotDeleteTarget.date)} · {slotDeleteTarget.time_range}» будет удалён
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <motion.button onClick={()=>setSlotDeleteTarget(null)} disabled={deletingSlot}
+                  whileTap={!deletingSlot?{scale:0.96}:undefined}
+                  className="flex-1 rounded-[18px] bg-muted text-foreground text-[15px] font-bold py-3.5">
+                  Отмена
+                </motion.button>
+                <motion.button onClick={handleDeleteSlot} disabled={deletingSlot}
+                  whileTap={!deletingSlot?{scale:0.96}:undefined}
+                  className="flex-1 rounded-[18px] text-white text-[15px] font-bold py-3.5"
+                  style={{ background: deletingSlot ? '#fca5a5' : '#ef4444' }}>
+                  {deletingSlot ? 'Удаляю…' : 'Удалить'}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Slot form sheet ── */}
+      <AnimatePresence>
+        {slotFormOpen && (
+          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            className="fixed inset-0" style={{ zIndex:250, background:'rgba(0,0,0,0.45)' }}
+            onClick={()=>!savingSlot&&setSlotFormOpen(false)}>
+            <motion.div
+              initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
+              transition={{ duration:0.35, ease:[0.25,0.46,0.45,0.94] }}
+              onClick={e=>e.stopPropagation()}
+              className="absolute bottom-0 left-0 right-0 rounded-t-[28px] bg-background overflow-y-auto"
+              style={{ maxHeight:'92vh' }}>
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+              </div>
+              <div className="flex items-center justify-between px-5 py-4">
+                <h2 className="text-[20px] font-bold text-foreground tracking-tighter">Новый слот доставки</h2>
+                <motion.button onClick={()=>!savingSlot&&setSlotFormOpen(false)} whileTap={{ scale:0.88 }}
+                  className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
+                  <HugeiconsIcon icon={Cancel01Icon} size={18} color="#09090b" />
+                </motion.button>
+              </div>
+              <div className="px-5 pb-8 flex flex-col gap-3">
+                <FormField label="Дата *" value={slotForm.date} type="date"
+                  onChange={v=>setSlotForm(f=>({...f,date:v}))} placeholder="" />
+                <FormField label="Время *" value={slotForm.time_range}
+                  onChange={v=>setSlotForm(f=>({...f,time_range:v}))} placeholder="09:00 — 12:00" />
+                <FormField label="Районы (через запятую) *" value={slotForm.districts}
+                  onChange={v=>setSlotForm(f=>({...f,districts:v}))} placeholder="Центр, Первомайский, Октябрьский" />
+                <p className="text-[12px] font-medium text-muted-foreground px-1">
+                  Слот станет доступен пользователям при оформлении заказа.
+                </p>
+                <motion.button onClick={handleSaveSlot} disabled={savingSlot}
+                  whileTap={!savingSlot?{scale:0.97}:undefined}
+                  className="h-14 rounded-[20px] flex items-center justify-center mt-2"
+                  style={{ background: savingSlot ? '#e4e4e7' : '#09090b' }}>
+                  {savingSlot
+                    ? <div className="w-5 h-5 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
+                    : <span className="text-[15px] font-bold text-white">Создать слот</span>}
                 </motion.button>
               </div>
             </motion.div>

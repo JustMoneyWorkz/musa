@@ -237,6 +237,27 @@ export interface AdminPromo {
   created_at: string
 }
 
+export interface AdminDeliverySlot {
+  id: number
+  product_id: number | null
+  date: string         // 'YYYY-MM-DD'
+  time_range: string   // '09:00 — 12:00'
+  districts: string[]
+  available: boolean
+  created_at?: string
+}
+
+export const adminSlotsApi = {
+  getAll: () => apiFetch<AdminDeliverySlot[]>('/api/admin/delivery-slots'),
+  create: (data: { date: string; time_range: string; districts: string[]; product_id?: number }) =>
+    apiFetch<AdminDeliverySlot>('/api/admin/delivery-slots', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    apiFetch<{ deleted: number }>(`/api/admin/delivery-slots/${id}`, { method: 'DELETE' }),
+}
+
 export const adminPromosApi = {
   getAll: () => apiFetch<AdminPromo[]>('/api/admin/promos'),
   create: (data: { code: string; discount_percent: number; active_from: string; active_to: string }) =>

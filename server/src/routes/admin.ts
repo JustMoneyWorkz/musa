@@ -162,6 +162,29 @@ router.post('/delivery-slots',
   }
 )
 
+// DELETE /admin/delivery-slots/:id
+router.delete('/delivery-slots/:id',
+  requireAdmin,
+  param('id').isInt({ min: 1 }),
+  handleValidation,
+  async (req: AuthRequest, res, next) => {
+    try {
+      const result = await pool.query(
+        'DELETE FROM delivery_slots WHERE id=$1 RETURNING id',
+        [req.params.id]
+      )
+      if (!result.rows.length) return res.status(404).json({ error: 'Slot not found' })
+      res.json({ deleted: result.rows[0].id })
+    } catch (err: unknown) {
+      // FK violation — слот используется в заказах
+      if ((err as { code?: string }).code === '23503') {
+        return res.status(409).json({ error: 'Слот используется в заказах' })
+      }
+      next(err)
+    }
+  }
+)
+
 // GET /admin/promos — list all promo codes
 router.get('/promos',
   requireAdmin,
