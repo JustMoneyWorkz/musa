@@ -527,7 +527,7 @@ export default function App() {
             <ProductPage
               product={selectedProduct}
               onClose={() => { setSelectedProduct(null); refreshFavorites() }}
-              onAddToCart={(id) => { addToCart(id); setSelectedProduct(null); handleNavigate('favorites') }}
+              onAddToCart={(id, qty) => { addToCart(id, qty); setSelectedProduct(null); handleNavigate('favorites') }}
               onToggleFavorite={toggleFavorite}
               favoriteIds={favoriteIds}
             />

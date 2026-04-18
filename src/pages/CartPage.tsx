@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -8,6 +9,17 @@ import {
   ShoppingCart01Icon,
 } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
+import { slotsApi, DeliverySlot } from '../lib/api'
+
+function formatSlotDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const slotDate = new Date(y, m - 1, d)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+  if (slotDate.getTime() === today.getTime()) return 'Сегодня'
+  if (slotDate.getTime() === tomorrow.getTime()) return 'Завтра'
+  return slotDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}
 
 interface CartItem {
   product: Product
@@ -36,6 +48,28 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
   const subtotal   = items.reduce((s, i) => s + i.product.price * i.qty, 0)
   const total      = subtotal + DELIVERY_FEE
+
+  // Реальный ближайший слот доставки из API
+  const [nearestSlot, setNearestSlot] = useState<DeliverySlot | null>(null)
+  const [slotsLoaded, setSlotsLoaded] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    slotsApi.get()
+      .then(data => {
+        if (cancelled) return
+        const available = data.filter(s => s.available)
+        // отсортируем по дате (на бэке порядок не гарантирован)
+        available.sort((a, b) => a.date.localeCompare(b.date) || a.time_range.localeCompare(b.time_range))
+        setNearestSlot(available[0] ?? null)
+      })
+      .catch(() => { /* нет слотов — покажем placeholder */ })
+      .finally(() => { if (!cancelled) setSlotsLoaded(true) })
+    return () => { cancelled = true }
+  }, [])
+
+  const slotTitle = nearestSlot
+    ? `${formatSlotDate(nearestSlot.date)}, ${nearestSlot.time_range}`
+    : slotsLoaded ? 'Согласуем при подтверждении' : 'Загружаем расписание…'
 
   if (items.length === 0) {
     return (
@@ -164,12 +198,14 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
           style={{ background: 'linear-gradient(135deg, #0b7a43 0%, #2e8b57 100%)' }}
         >
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.72)' }}>Слот доставки</p>
-            <h3 className="text-[19px] font-bold text-white tracking-tighter mb-2">Сегодня, 14:30</h3>
-            <p className="text-[14px] font-medium" style={{ color: 'rgba(255,255,255,0.80)' }}>Экспресс доставка на домашний адрес</p>
+            <p className="text-[13px] font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.72)' }}>Ближайший слот</p>
+            <h3 className="text-[19px] font-bold text-white tracking-tighter mb-2">{slotTitle}</h3>
+            <p className="text-[14px] font-medium" style={{ color: 'rgba(255,255,255,0.80)' }}>
+              {nearestSlot ? 'Доставка по выбранному адресу' : 'Слот выберете при оформлении'}
+            </p>
           </div>
           <div className="shrink-0 rounded-[18px] px-4 py-2.5 text-sm font-bold text-white" style={{ background: 'rgba(255,255,255,0.14)' }}>
-            Экспресс
+            {nearestSlot ? 'К оформлению' : '—'}
           </div>
         </motion.button>
 

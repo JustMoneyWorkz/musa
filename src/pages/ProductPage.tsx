@@ -17,7 +17,7 @@ import { Product } from '../components/ProductCard'
 interface ProductPageProps {
   product: Product
   onClose: () => void
-  onAddToCart: (id: string) => void
+  onAddToCart: (id: string, qty?: number) => void
   onToggleFavorite?: (id: string) => void
   favoriteIds?: string[]
 }
@@ -278,7 +278,7 @@ export default function ProductPage({ product, onClose, onAddToCart, onToggleFav
           </div>
 
           <motion.button
-            onClick={() => { if (product.inStock === false) return; for (let i = 0; i < qty; i++) onAddToCart(product.id) }}
+            onClick={() => { if (product.inStock === false) return; onAddToCart(product.id, qty) }}
             whileTap={product.inStock !== false ? { scale: 0.97 } : undefined}
             className="h-14 rounded-[20px] flex items-center justify-between px-5 w-full relative overflow-hidden"
             style={{ background: product.inStock === false ? '#e4e4e7' : '#09090b' }}

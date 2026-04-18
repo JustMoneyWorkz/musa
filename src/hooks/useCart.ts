@@ -8,6 +8,9 @@ export function useCart() {
   const [loading, setLoading] = useState(true)
   // Abort in-flight requests on unmount
   const mounted = useRef(true)
+  // Live ref на cartQty, чтобы стабильные useCallback-методы видели актуальное состояние
+  const cartQtyRef = useRef<CartQty>({})
+  cartQtyRef.current = cartQty
 
   // ── Fetch from API on mount ──────────────────────────────────────────────
   useEffect(() => {
@@ -27,10 +30,11 @@ export function useCart() {
     return () => { mounted.current = false }
   }, [])
 
-  // ── Optimistic add (increment by 1) ─────────────────────────────────────
-  const addToCart = useCallback(async (id: string) => {
-    const prev = cartQty[id] ?? 0
-    const next = prev + 1
+  // ── Optimistic add (по умолчанию +1, можно передать кастомное delta) ────
+  const addToCart = useCallback(async (id: string, delta: number = 1) => {
+    if (delta < 1) return
+    const prev = cartQtyRef.current[id] ?? 0
+    const next = prev + delta
     setCartQty(q => ({ ...q, [id]: next }))
     try {
       await cartApi.set(parseInt(id), next)
@@ -44,11 +48,11 @@ export function useCart() {
       })
       console.warn('[useCart] addToCart failed:', err)
     }
-  }, [cartQty])
+  }, [])
 
   // ── Optimistic decrement ─────────────────────────────────────────────────
   const decrement = useCallback(async (id: string) => {
-    const prev = cartQty[id] ?? 0
+    const prev = cartQtyRef.current[id] ?? 0
     if (prev === 0) return
     const next = prev - 1
 
@@ -70,11 +74,11 @@ export function useCart() {
       setCartQty(q => ({ ...q, [id]: prev }))
       console.warn('[useCart] decrement failed:', err)
     }
-  }, [cartQty])
+  }, [])
 
   // ── Clear cart ───────────────────────────────────────────────────────────
   const clearCart = useCallback(async () => {
-    const prev = { ...cartQty }
+    const prev = { ...cartQtyRef.current }
     setCartQty({})
     try {
       await cartApi.clear()
@@ -82,7 +86,7 @@ export function useCart() {
       setCartQty(prev)
       console.warn('[useCart] clear failed:', err)
     }
-  }, [cartQty])
+  }, [])
 
   const cartCount = Object.values(cartQty).reduce((s, q) => s + q, 0)
 
