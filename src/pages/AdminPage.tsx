@@ -1018,7 +1018,7 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
           <motion.div
             initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:20 }}
             className="fixed left-5 right-5 text-center py-3.5 rounded-[16px] text-[14px] font-bold text-white"
-            style={{ bottom:'24px', zIndex:300, background:'#09090b' }}>
+            style={{ bottom:'90px', zIndex:300, background:'#09090b' }}>
             {toast}
           </motion.div>
         )}

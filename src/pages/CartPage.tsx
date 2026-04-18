@@ -10,6 +10,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
 import { slotsApi, DeliverySlot } from '../lib/api'
+import { formatTotalWeight } from '../lib/weight'
 
 function formatSlotDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -129,7 +130,7 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
           <div className="grid grid-cols-3 gap-2 relative z-10">
             {[
               { value: String(totalItems), label: 'Товаров' },
-              { value: `${(totalItems * 0.8).toFixed(1)} кг`, label: 'Вес' },
+              { value: formatTotalWeight(items.map(i => ({ weight: i.product.weight, qty: i.qty }))), label: 'Вес' },
               { value: '20 мин', label: 'Доставка' },
             ].map((s) => (
               <div key={s.label} className="rounded-2xl py-3 px-2 text-center" style={{ background: 'rgba(255,255,255,0.10)' }}>

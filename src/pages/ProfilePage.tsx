@@ -65,15 +65,16 @@ const MENU_ITEMS = [
 // ── Animated counter ─────────────────────────────────────────────────────────
 function AnimatedNumber({ value }: { value: number }) {
   const [display, setDisplay] = useState(0)
-  const done = useRef(false)
+  const lastVal = useRef(0)
   useEffect(() => {
-    if (done.current) return
-    done.current = true
-    const controls = animate(0, value, {
-      duration: 0.85,
+    const from = lastVal.current
+    if (from === value) return
+    const controls = animate(from, value, {
+      duration: Math.abs(value - from) > 5 ? 0.85 : 0.4,
       ease: [0.25, 0.46, 0.45, 0.94],
       onUpdate: (v) => setDisplay(Math.round(v)),
     })
+    lastVal.current = value
     return () => controls.stop()
   }, [value])
   return <>{display}</>

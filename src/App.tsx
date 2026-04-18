@@ -628,8 +628,8 @@ export default function App() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-28 left-5 right-5 bg-foreground text-white text-center py-3.5 rounded-[16px] text-[14px] font-bold"
-            style={{ zIndex: 200 }}
+            className="fixed left-5 right-5 bg-foreground text-white text-center py-3.5 rounded-[16px] text-[14px] font-bold"
+            style={{ bottom: 110, zIndex: 250 }}
           >
             {globalToast}
           </motion.div>
