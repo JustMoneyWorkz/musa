@@ -14,7 +14,7 @@ import {
   DiscountTag01Icon,
 } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
-import { Address, DeliverySlot, slotsApi, ordersApi, promoApi, ApiError, PromoResult } from '../lib/api'
+import { Address, DeliverySlot, slotsApi, ordersApi, promoApi, usersApi, ApiError, PromoResult } from '../lib/api'
 
 interface CartItem {
   product: Product
@@ -64,9 +64,9 @@ export default function CheckoutPage({
   const [lastName,  setLastName]  = useState('')
   const [phone,     setPhone]     = useState('')
 
-  // Address
+  // Address — при открытии выбираем дефолтный (is_default=true), иначе первый сохранённый
   const [selectedAddrId, setSelectedAddrId] = useState<number | 'new'>(
-    savedAddresses[0]?.id ?? 'new'
+    savedAddresses.find(a => a.is_default)?.id ?? savedAddresses[0]?.id ?? 'new'
   )
   const [newAddress,     setNewAddress]     = useState('')
   const [saveNewAddr,    setSaveNewAddr]    = useState(false)
@@ -107,10 +107,23 @@ export default function CheckoutPage({
       .catch(() => {}) // no slots — not critical
   }, [])
 
-  // Keep selected address in sync when savedAddresses loads
+  // Prefill контакта из профиля (сохранённые данные после прошлых заказов)
+  useEffect(() => {
+    usersApi.getMe()
+      .then(me => {
+        if (me.first_name && !firstName) setFirstName(me.first_name)
+        if (me.last_name && !lastName)   setLastName(me.last_name)
+        if (me.phone && !phone)          setPhone(me.phone)
+      })
+      .catch(() => { /* молча — не критично */ })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Keep selected address in sync when savedAddresses loads (выбираем дефолтный)
   useEffect(() => {
     if (selectedAddrId === 'new' && savedAddresses.length > 0) {
-      setSelectedAddrId(savedAddresses[0].id)
+      const defaultAddr = savedAddresses.find(a => a.is_default) ?? savedAddresses[0]
+      setSelectedAddrId(defaultAddr.id)
     }
   }, [savedAddresses.length]) // eslint-disable-line
 
@@ -200,6 +213,15 @@ export default function CheckoutPage({
         setSubmitting(false)
         return
       }
+
+      // Best-effort: сохраняем имя/фамилию/телефон в профиль для prefill следующего заказа.
+      // Ошибку глушим — заказ уже создан, профиль не критичен.
+      const profileUpdate: Partial<{ phone: string; first_name: string; last_name: string }> = {
+        phone: normPhone,
+      }
+      if (firstName.trim()) profileUpdate.first_name = firstName.trim()
+      if (lastName.trim())  profileUpdate.last_name  = lastName.trim()
+      usersApi.updateMe(profileUpdate).catch(() => {})
 
       setOrderId(order.id)
       setConfirmed(true)

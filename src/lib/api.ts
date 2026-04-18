@@ -58,6 +58,28 @@ export class ApiError extends Error {
   }
 }
 
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+export interface UserProfile {
+  telegram_id: number
+  username: string | null
+  first_name: string
+  last_name: string | null
+  photo_url: string | null
+  phone: string | null
+  created_at: string
+}
+
+export const usersApi = {
+  getMe: () => apiFetch<UserProfile>('/api/users/me'),
+
+  updateMe: (data: Partial<{ phone: string; first_name: string; last_name: string }>) =>
+    apiFetch<UserProfile>('/api/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+}
+
 // ─── Cart ────────────────────────────────────────────────────────────────────
 
 export interface CartItem {
