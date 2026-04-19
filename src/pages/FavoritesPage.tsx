@@ -96,7 +96,7 @@ export default function FavoritesPage({ products, favoriteIds, onProductClick, o
                 className="bg-muted rounded-[26px] p-3 flex flex-col gap-3 text-left w-full"
                 whileTap={{ scale: 0.97 }}
               >
-                <div className="relative h-[132px] rounded-[20px] overflow-hidden bg-card p-2 w-full">
+                <div className="relative aspect-square rounded-[20px] overflow-hidden bg-card p-2 w-full">
                   <img
                     src={product.imageSrc}
                     alt={product.title}
