@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Leaf01Icon, ShoppingBasket03Icon, StarIcon } from '@hugeicons/core-free-icons'
@@ -23,6 +23,7 @@ import { useAdmin } from './hooks/useAdmin'
 import { useProducts } from './hooks/useProducts'
 import AdminPage from './pages/AdminPage'
 import { Order, fetchProductCount } from './lib/api'
+import { TOAST_BOTTOM_NAVBAR, TOAST_BOTTOM_FLAT } from './lib/toast'
 
 type ProfileSection = 'orders' | 'addresses' | 'payment' | 'support'
 
@@ -218,6 +219,43 @@ const gridItem = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
+// Мемоизированная карточка категории — не переренедерится при изменении других
+// частей homePage (например когда apiProducts асинхронно догружается и меняет
+// veggieCount). Иконка остаётся статичной, без «дёрганья».
+type CategoryCardProps = {
+  title: string
+  subtitle: string
+  icon: typeof Leaf01Icon
+  iconColor: string
+  bg: string
+  iconBg: string
+  onSelect: (title: string) => void
+}
+const CategoryCard = memo(function CategoryCard({
+  title, subtitle, icon, iconColor, bg, iconBg, onSelect,
+}: CategoryCardProps) {
+  return (
+    <motion.button
+      variants={gridItem}
+      whileTap={{ scale: 0.96 }}
+      onClick={() => onSelect(title)}
+      className="rounded-xl h-[140px] flex flex-col justify-between p-5 text-left overflow-hidden"
+      style={{ background: bg }}
+    >
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center"
+        style={{ background: iconBg }}
+      >
+        <HugeiconsIcon icon={icon} size={22} color={iconColor} />
+      </div>
+      <div>
+        <h3 className="text-[17px] font-semibold text-white leading-tight">{title}</h3>
+        <p className="text-[13px] mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>{subtitle}</p>
+      </div>
+    </motion.button>
+  )
+})
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const { cartQty, cartCount, addToCart, decrement, clearCart } = useCart()
@@ -255,12 +293,12 @@ export default function App() {
     window.scrollTo(0, 0)
   }
 
-  const handleCategoryClick = (categoryTitle: string) => {
+  const handleCategoryClick = useCallback((categoryTitle: string) => {
     prevTabRef.current = activeTab
     setBrowseCategory(categoryTitle)
     setActiveTab('catalog')
     window.scrollTo(0, 0)
-  }
+  }, [activeTab])
 
   const direction = TAB_ORDER.indexOf(activeTab) - TAB_ORDER.indexOf(prevTabRef.current)
 
@@ -401,25 +439,16 @@ export default function App() {
                 title === 'Наборы' && setsCount > 0 ? `${setsCount} товаров` :
                 subtitle
               return (
-              <motion.button
-                key={title}
-                variants={gridItem}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => handleCategoryClick(title)}
-                className="rounded-xl h-[140px] flex flex-col justify-between p-5 text-left overflow-hidden"
-                style={{ background: bg }}
-              >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: iconBg }}
-                >
-                  <HugeiconsIcon icon={icon} size={22} color={iconColor} />
-                </div>
-                <div>
-                  <h3 className="text-[17px] font-semibold text-white leading-tight">{title}</h3>
-                  <p className="text-[13px] mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>{displaySubtitle}</p>
-                </div>
-              </motion.button>
+                <CategoryCard
+                  key={title}
+                  title={title}
+                  subtitle={displaySubtitle}
+                  icon={icon}
+                  iconColor={iconColor}
+                  bg={bg}
+                  iconBg={iconBg}
+                  onSelect={handleCategoryClick}
+                />
               )
             })}
           </motion.div>
@@ -462,7 +491,7 @@ export default function App() {
   const renderPage = () => {
     switch (activeTab) {
       case 'catalog':   return <BrowsePage key={browseCategory ?? 'all'} products={allProducts} initialCategory={browseCategory} onAddToCart={addToCart} onProductClick={(p) => setSelectedProduct(p)} cartQty={cartQty} />
-      case 'favorites': return <CartPage items={cartItems} onIncrement={addToCart} onDecrement={decrement} onCheckout={() => setCheckoutOpen(true)} />
+      case 'favorites': return <CartPage items={cartItems} onIncrement={addToCart} onDecrement={decrement} onCheckout={() => setCheckoutOpen(true)} onProductClick={(p) => setSelectedProduct(p)} />
       case 'profile':   return <ProfilePage onMenuClick={handleProfileMenuClick} favoritesCount={favoritesCount} ordersCount={ordersCount} cartCount={cartCount} activeOrder={activeOrder} onOrderClick={() => setProfileSection('orders')} isAdmin={isAdmin} onAdminClick={() => setAdminOpen(true)} />
       default: return homePage
     }
@@ -622,20 +651,28 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Global toast */}
+      {/* Global toast — позиция меняется в зависимости от того, виден ли сейчас
+          нижний нав-бар. Если открыт любой полноэкранный overlay — нав-бара нет,
+          ставим toast у самого низа (40px). Иначе — над нав-баром (110px). */}
       <AnimatePresence>
-        {globalToast && (
-          <motion.div
-            key="global-toast"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed left-5 right-5 bg-foreground text-white text-center py-3.5 rounded-[16px] text-[14px] font-bold"
-            style={{ bottom: 110, zIndex: 250 }}
-          >
-            {globalToast}
-          </motion.div>
-        )}
+        {globalToast && (() => {
+          const hasOverlay = !!(
+            profileSection || checkoutOpen || selectedProduct ||
+            selectedOrder || favoritesOpen || adminOpen
+          )
+          return (
+            <motion.div
+              key="global-toast"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed left-5 right-5 bg-foreground text-white text-center py-3.5 rounded-[16px] text-[14px] font-bold"
+              style={{ bottom: hasOverlay ? TOAST_BOTTOM_FLAT : TOAST_BOTTOM_NAVBAR, zIndex: 250 }}
+            >
+              {globalToast}
+            </motion.div>
+          )
+        })()}
       </AnimatePresence>
     </div>
   )

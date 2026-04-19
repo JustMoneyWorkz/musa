@@ -25,6 +25,7 @@ import {
   productsAdminApi, adminOrdersApi, adminPromosApi, adminSlotsApi,
   uploadApi, ApiError,
 } from '../lib/api'
+import { TOAST_BOTTOM_FLAT } from '../lib/toast'
 
 interface AdminPageProps {
   isAdmin: boolean
@@ -123,7 +124,10 @@ interface SlotForm {
 const EMPTY_SLOT_FORM: SlotForm = { date:'', time_range:'', districts:'' }
 
 function formatFullSlotDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
+  // .slice(0,10) — на случай если бэк вдруг отдаст ISO timestamp вместо YYYY-MM-DD
+  // (см. pg DATE type parser в server/src/db/pool.ts).
+  const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number)
+  if (!y || !m || !d) return '—'
   const date = new Date(y, m - 1, d)
   const today = new Date(); today.setHours(0,0,0,0)
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
@@ -1273,7 +1277,7 @@ export default function AdminPage({ isAdmin, onClose, onProductsChanged }: Admin
           <motion.div
             initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:20 }}
             className="fixed left-5 right-5 text-center py-3.5 rounded-[16px] text-[14px] font-bold text-white"
-            style={{ bottom:'90px', zIndex:300, background:'#09090b' }}>
+            style={{ bottom: TOAST_BOTTOM_FLAT, zIndex:300, background:'#09090b' }}>
             {toast}
           </motion.div>
         )}

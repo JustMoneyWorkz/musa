@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon, Add01Icon, Money02Icon } from '@hugeicons/core-free-icons'
+import { TOAST_BOTTOM_FLAT } from '../lib/toast'
 
 interface PaymentPageProps {
   onClose: () => void
@@ -93,7 +94,7 @@ export default function PaymentPage({ onClose }: PaymentPageProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="fixed left-5 right-5 bg-foreground text-white text-center py-3.5 rounded-[16px] text-[14px] font-bold"
-            style={{ bottom: '112px', zIndex: 999 }}
+            style={{ bottom: TOAST_BOTTOM_FLAT, zIndex: 999 }}
           >
             Функция добавления в разработке
           </motion.div>

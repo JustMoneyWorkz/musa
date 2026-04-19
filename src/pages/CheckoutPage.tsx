@@ -15,6 +15,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
 import { Address, DeliverySlot, slotsApi, ordersApi, promoApi, usersApi, ApiError, PromoResult } from '../lib/api'
+import { TOAST_BOTTOM_FLAT } from '../lib/toast'
 
 interface CartItem {
   product: Product
@@ -78,10 +79,11 @@ export default function CheckoutPage({
   // Payment
   const [payment, setPayment] = useState<'cash' | 'transfer'>('cash')
 
-  // Promo
+  // Promo: 4 состояния — idle | loading | applied | error
   const [promoInput,   setPromoInput]   = useState('')
   const [promoData,    setPromoData]    = useState<PromoResult | null>(null)
   const [checkingPromo, setCheckingPromo] = useState(false)
+  const [promoError,   setPromoError]   = useState<string | null>(null)
 
   // Submit
   const [submitting, setSubmitting] = useState(false)
@@ -134,16 +136,19 @@ export default function CheckoutPage({
   const handleCheckPromo = async () => {
     if (!promoInput.trim()) return
     setCheckingPromo(true)
+    setPromoError(null)
     try {
       const result = await promoApi.check(promoInput.trim())
       setPromoData(result)
-      showToast(`Промокод применён, скидка ${result.discount_percent}%`)
+      setPromoError(null)
     } catch (err) {
       setPromoData(null)
       if (err instanceof ApiError) {
-        if (err.status === 410) showToast('Промокод просрочен')
-        else if (err.status === 404) showToast('Промокод не найден')
-        else showToast('Ошибка проверки промокода')
+        if (err.status === 410)      setPromoError('Промокод просрочен')
+        else if (err.status === 404) setPromoError('Промокод не найден')
+        else                          setPromoError('Ошибка проверки')
+      } else {
+        setPromoError('Сетевая ошибка')
       }
     } finally {
       setCheckingPromo(false)
@@ -275,7 +280,7 @@ export default function CheckoutPage({
 
   // ── Main form ───────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col min-h-screen bg-background pb-[160px]">
+    <div className="flex flex-col min-h-screen bg-background pb-[40px]">
 
       {/* Top bar */}
       <motion.div
@@ -472,56 +477,89 @@ export default function CheckoutPage({
           </div>
         </motion.section>
 
-        {/* ── Promo code ── */}
+        {/* ── Promo code ──
+            4 визуальных состояния:
+            - idle:    обычный input + чёрная кнопка «Применить»
+            - loading: на кнопке три анимированные точки, input disabled
+            - applied: input залочен, зелёная кнопка с галочкой и крестиком (убрать)
+            - error:   красная рамка input'а + shake + красная подпись с причиной */}
         <motion.section variants={itemVariants} className="rounded-[24px] p-5 bg-muted flex flex-col gap-3">
           <SectionHeader icon={DiscountTag01Icon} title="Промокод" />
-          <div className="flex gap-2">
+          <motion.div
+            className="flex gap-2"
+            animate={promoError ? { x: [0, -6, 6, -4, 4, 0] } : { x: 0 }}
+            transition={{ duration: 0.4 }}
+          >
             <input
               value={promoInput}
-              onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoData(null) }}
+              onChange={e => {
+                setPromoInput(e.target.value.toUpperCase())
+                setPromoData(null)
+                setPromoError(null)
+              }}
               placeholder="MUSA10"
               className={`${inputCls} flex-1 uppercase`}
-              disabled={!!promoData}
+              style={promoError ? { borderColor: '#ef4444', background: 'rgba(239,68,68,0.06)' } : undefined}
+              disabled={!!promoData || checkingPromo}
             />
             {promoData ? (
               <motion.button
-                onClick={() => { setPromoData(null); setPromoInput('') }}
+                onClick={() => { setPromoData(null); setPromoInput(''); setPromoError(null) }}
                 whileTap={{ scale: 0.9 }}
                 className="h-12 px-4 rounded-[14px] text-[13px] font-bold text-white flex items-center gap-1.5"
                 style={{ background: '#2e8b57' }}
                 aria-label="Убрать промокод"
               >
                 <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} color="#ffffff" />
-                Применён
+                <span>−{promoData.discount_percent}%</span>
+                <span className="text-white/70 text-[16px] leading-none ml-1">×</span>
               </motion.button>
             ) : (
               <motion.button
                 onClick={handleCheckPromo}
                 disabled={!promoInput.trim() || checkingPromo}
                 whileTap={{ scale: 0.9 }}
-                className="h-12 px-4 rounded-[14px] text-[13px] font-bold text-white"
-                style={{ background: promoInput.trim() ? '#09090b' : '#e4e4e7' }}
+                className="h-12 px-4 min-w-[110px] rounded-[14px] text-[13px] font-bold text-white flex items-center justify-center"
+                style={{ background: checkingPromo ? '#3f3f46' : (promoInput.trim() ? '#09090b' : '#e4e4e7') }}
               >
-                {checkingPromo ? '…' : 'Применить'}
+                {checkingPromo ? (
+                  <span className="inline-flex items-center gap-1" aria-label="Проверяем">
+                    {[0, 1, 2].map(i => (
+                      <motion.span
+                        key={i}
+                        className="w-1.5 h-1.5 rounded-full bg-white"
+                        animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
+                        transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15 }}
+                      />
+                    ))}
+                  </span>
+                ) : 'Применить'}
               </motion.button>
             )}
-          </div>
+          </motion.div>
+
           {promoData && (
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between px-1"
+              className="flex items-center gap-2 px-1"
             >
+              <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} color="#2e8b57" />
               <span className="text-[13px] font-bold" style={{ color: '#2e8b57' }}>
-                {promoData.code} · −{promoData.discount_percent}%
+                {promoData.code} применён · скидка −{promoData.discount_percent}%
               </span>
-              <button
-                onClick={() => { setPromoData(null); setPromoInput('') }}
-                className="text-[12px] font-medium underline"
-                style={{ color: '#9aa3ae' }}
-              >
-                убрать
-              </button>
+            </motion.div>
+          )}
+
+          {promoError && !promoData && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 px-1"
+            >
+              <span className="text-[13px] font-bold" style={{ color: '#ef4444' }}>
+                {promoError}
+              </span>
             </motion.div>
           )}
         </motion.section>
@@ -557,45 +595,32 @@ export default function CheckoutPage({
               <span className="text-[15px] font-bold" style={{ color: '#2e8b57' }}>{total} ₽</span>
             </div>
           </div>
+
+          {/* Submit-кнопка — внутри блока «Итого», как последний элемент.
+              Не плавающая (раньше была fixed bottom — мешала прокрутке/слотам). */}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full h-14 rounded-[20px] flex items-center justify-between px-5 mt-2"
+            style={{
+              background: submitting ? '#3f3f46' : '#09090b',
+              color: '#fff',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <span className="text-base font-bold">
+              {submitting ? 'Создаём заказ…' : 'Оставить заявку'}
+            </span>
+            <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold leading-none"
+                  style={{ background: 'rgba(255,255,255,0.16)' }}>
+              {total} ₽
+            </span>
+          </button>
         </motion.section>
 
       </motion.div>
-
-      {/* ── Submit button wrapper (фикс + градиентная подложка, чтобы контент
-              плавно затухал под кнопкой, а не обрывался резко) ── */}
-      <div
-        className="fixed left-0 right-0 pointer-events-none"
-        style={{
-          bottom: 0,
-          zIndex: 95,
-          paddingTop: 32,
-          paddingBottom: 24,
-          paddingLeft: 20,
-          paddingRight: 20,
-          background: 'linear-gradient(to top, var(--background) 55%, transparent 100%)',
-        }}
-      >
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="pointer-events-auto w-full h-14 rounded-[20px] flex items-center justify-between px-5"
-          style={{
-            background: submitting ? '#3f3f46' : '#09090b',
-            color: '#fff',
-            touchAction: 'manipulation',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <span className="text-base font-bold">
-            {submitting ? 'Создаём заказ…' : 'Оставить заявку'}
-          </span>
-          <span className="rounded-2xl px-3 py-2.5 text-[14px] font-bold leading-none"
-                style={{ background: 'rgba(255,255,255,0.16)' }}>
-            {total} ₽
-          </span>
-        </button>
-      </div>
 
       {/* Local toast */}
       <AnimatePresence>
@@ -605,7 +630,7 @@ export default function CheckoutPage({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="fixed left-5 right-5 text-center py-3.5 rounded-[16px] text-[14px] font-bold text-white"
-            style={{ bottom: 100, zIndex: 9999, background: '#09090b' }}
+            style={{ bottom: TOAST_BOTTOM_FLAT, zIndex: 9999, background: '#09090b' }}
           >
             {toast}
           </motion.div>

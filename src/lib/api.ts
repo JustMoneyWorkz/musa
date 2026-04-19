@@ -24,6 +24,9 @@ async function apiFetch<T>(
     const res = await fetch(`${BASE}${path}`, {
       ...options,
       signal: ctrl.signal,
+      // Telegram WebView (особенно iOS) кеширует GET /orders → пользователь видит stale
+      // статус даже после refresh. no-store гарантирует свежий запрос на бэк.
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `tma ${getInitData()}`,

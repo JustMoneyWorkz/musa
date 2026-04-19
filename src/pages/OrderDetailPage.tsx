@@ -11,9 +11,11 @@ import {
   DiscountTag01Icon,
   Tick01Icon,
   Package01Icon,
+  BubbleChatIcon,
 } from '@hugeicons/core-free-icons'
 import { Order, ordersApi, ApiError } from '../lib/api'
 import { STATUS_LABEL, STATUS_COLOR, STATUS_BG, formatOrderDate } from './OrdersPage'
+import { TOAST_BOTTOM_FLAT } from '../lib/toast'
 
 interface OrderDetailPageProps {
   order: Order
@@ -49,20 +51,27 @@ export default function OrderDetailPage({ order: initialOrder, onClose, onOrderU
     setTimeout(() => setToast(null), 2800)
   }
 
-  // Refetch актуальное состояние заказа при открытии детали — статус мог измениться
-  // на стороне админа пока пользователь был в другом месте приложения.
+  // Refetch на mount + polling каждые 8 секунд — пока пользователь смотрит на
+  // активный заказ, мы тянем свежий статус с бэка. Останавливаем для финальных
+  // статусов (delivered/cancelled) — там уже ничего не изменится.
   useEffect(() => {
     let cancelled = false
-    ordersApi.getById(initialOrder.id)
-      .then(fresh => {
-        if (cancelled) return
-        setOrder(fresh)
-        if (fresh.status !== initialOrder.status) {
-          onOrderUpdated(fresh)
-        }
-      })
-      .catch(() => { /* молча — покажем last known state */ })
-    return () => { cancelled = true }
+    const fetchFresh = () => {
+      ordersApi.getById(initialOrder.id)
+        .then(fresh => {
+          if (cancelled) return
+          setOrder(prev => {
+            if (prev.status !== fresh.status) onOrderUpdated(fresh)
+            return fresh
+          })
+        })
+        .catch(() => { /* молча — покажем last known state */ })
+    }
+    fetchFresh()
+    const isFinal = initialOrder.status === 'delivered' || initialOrder.status === 'cancelled'
+    if (isFinal) return () => { cancelled = true }
+    const id = setInterval(fetchFresh, 8000)
+    return () => { cancelled = true; clearInterval(id) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialOrder.id])
 
@@ -82,8 +91,19 @@ export default function OrderDetailPage({ order: initialOrder, onClose, onOrderU
     }
   }
 
-  const isActive = order.status === 'delivering'
+  const isDelivering = order.status === 'delivering'
   const isCompleted = order.status === 'delivered'
+  const isCancelled = order.status === 'cancelled'
+
+  // «Написать» — открывает Telegram-чат с поддержкой/курьером (по согласованию с
+  // заказчиком — @bookmusa). Кнопка должна быть доступна на любом активном
+  // (не финальном) статусе.
+  const handleContact = () => {
+    const tg = (window as any).Telegram?.WebApp
+    const url = 'https://t.me/bookmusa'
+    if (tg?.openTelegramLink) tg.openTelegramLink(url)
+    else window.open(url, '_blank')
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-[110px]">
@@ -221,18 +241,27 @@ export default function OrderDetailPage({ order: initialOrder, onClose, onOrderU
           )}
         </motion.section>
 
-        {/* ── Confirm button — only for delivering status ── */}
-        {(isActive || isCompleted) && (
+        {/* ── Action buttons ──
+            «Написать» — всегда (для активных заказов): открывает Telegram-чат с курьером.
+            «Завершено» — когда статус delivering: пользователь подтверждает получение
+            (заказ перейдёт в delivered, статус финальный).
+            Для завершённых/отменённых — финальная плашка вместо кнопок. */}
+        {!isCompleted && !isCancelled && (
           <motion.div
             custom={3} variants={sectionVariants} initial="hidden" animate="visible"
+            className="grid gap-2"
+            style={{ gridTemplateColumns: isDelivering ? '1fr 1fr' : '1fr' }}
           >
-            {isCompleted ? (
-              <div className="h-14 rounded-[20px] flex items-center justify-center gap-2"
-                   style={{ background: 'rgba(59,130,246,0.08)', border: '2px solid rgba(59,130,246,0.2)' }}>
-                <HugeiconsIcon icon={Tick01Icon} size={20} color="#3b82f6" />
-                <span className="text-[15px] font-bold" style={{ color: '#3b82f6' }}>Получение подтверждено</span>
-              </div>
-            ) : (
+            <motion.button
+              onClick={handleContact}
+              whileTap={{ scale: 0.97 }}
+              className="h-14 rounded-[20px] flex items-center justify-center gap-2 w-full bg-muted"
+            >
+              <HugeiconsIcon icon={BubbleChatIcon} size={20} color="#09090b" />
+              <span className="text-[15px] font-bold text-foreground">Написать</span>
+            </motion.button>
+
+            {isDelivering && (
               <motion.button
                 onClick={handleConfirm}
                 disabled={confirming}
@@ -247,10 +276,21 @@ export default function OrderDetailPage({ order: initialOrder, onClose, onOrderU
                 )}
                 <span className="text-[15px] font-bold"
                       style={{ color: confirming ? '#a1a1aa' : '#ffffff' }}>
-                  {confirming ? 'Подтверждаю…' : 'Подтвердить получение'}
+                  {confirming ? 'Подтверждаю…' : 'Завершено'}
                 </span>
               </motion.button>
             )}
+          </motion.div>
+        )}
+
+        {isCompleted && (
+          <motion.div
+            custom={3} variants={sectionVariants} initial="hidden" animate="visible"
+            className="h-14 rounded-[20px] flex items-center justify-center gap-2"
+            style={{ background: 'rgba(59,130,246,0.08)', border: '2px solid rgba(59,130,246,0.2)' }}
+          >
+            <HugeiconsIcon icon={Tick01Icon} size={20} color="#3b82f6" />
+            <span className="text-[15px] font-bold" style={{ color: '#3b82f6' }}>Заказ завершён</span>
           </motion.div>
         )}
 
@@ -264,7 +304,7 @@ export default function OrderDetailPage({ order: initialOrder, onClose, onOrderU
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="fixed left-5 right-5 text-center py-3.5 rounded-[16px] text-[14px] font-bold text-white"
-            style={{ bottom: '112px', zIndex: 999, background: '#09090b' }}
+            style={{ bottom: TOAST_BOTTOM_FLAT, zIndex: 999, background: '#09090b' }}
           >
             {toast}
           </motion.div>

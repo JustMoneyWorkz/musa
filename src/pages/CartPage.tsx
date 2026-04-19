@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { createPortal } from 'react-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   MoreHorizontalIcon,
@@ -7,13 +8,18 @@ import {
   MinusSignIcon,
   PlusSignIcon,
   ShoppingCart01Icon,
+  CheckmarkCircle02Icon,
+  Calendar03Icon,
 } from '@hugeicons/core-free-icons'
 import { Product } from '../components/ProductCard'
 import { slotsApi, DeliverySlot } from '../lib/api'
 import { formatTotalWeight } from '../lib/weight'
 
 function formatSlotDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
+  // .slice(0,10) защищает от ISO timestamp ('YYYY-MM-DDTHH:mm:ss...') если pg
+  // type parser не сработает — лучше параноить на фронте, чем показать Invalid Date.
+  const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number)
+  if (!y || !m || !d) return '—'
   const slotDate = new Date(y, m - 1, d)
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
@@ -32,6 +38,7 @@ interface CartPageProps {
   onIncrement: (id: string) => void
   onDecrement: (id: string) => void
   onCheckout?: () => void
+  onProductClick?: (product: Product) => void
 }
 
 const DELIVERY_FEE = 299
@@ -45,14 +52,17 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
-export default function CartPage({ items, onIncrement, onDecrement, onCheckout }: CartPageProps) {
+export default function CartPage({ items, onIncrement, onDecrement, onCheckout, onProductClick }: CartPageProps) {
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
   const subtotal   = items.reduce((s, i) => s + i.product.price * i.qty, 0)
   const total      = subtotal + DELIVERY_FEE
 
-  // Реальный ближайший слот доставки из API
-  const [nearestSlot, setNearestSlot] = useState<DeliverySlot | null>(null)
+  // Слоты доставки из API + локальный выбор пользователя (превью; финальный
+  // выбор всё равно происходит на CheckoutPage).
+  const [allSlots, setAllSlots] = useState<DeliverySlot[]>([])
+  const [selectedSlot, setSelectedSlot] = useState<DeliverySlot | null>(null)
   const [slotsLoaded, setSlotsLoaded] = useState(false)
+  const [slotSheetOpen, setSlotSheetOpen] = useState(false)
   useEffect(() => {
     let cancelled = false
     slotsApi.get()
@@ -61,16 +71,28 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
         const available = data.filter(s => s.available)
         // отсортируем по дате (на бэке порядок не гарантирован)
         available.sort((a, b) => a.date.localeCompare(b.date) || a.time_range.localeCompare(b.time_range))
-        setNearestSlot(available[0] ?? null)
+        setAllSlots(available)
+        setSelectedSlot(available[0] ?? null)
       })
       .catch(() => { /* нет слотов — покажем placeholder */ })
       .finally(() => { if (!cancelled) setSlotsLoaded(true) })
     return () => { cancelled = true }
   }, [])
 
-  const slotTitle = nearestSlot
-    ? `${formatSlotDate(nearestSlot.date)}, ${nearestSlot.time_range}`
+  // Лочим скролл body когда открыт bottom sheet
+  useEffect(() => {
+    if (!slotSheetOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [slotSheetOpen])
+
+  const slotTitle = selectedSlot
+    ? `${formatSlotDate(selectedSlot.date)}, ${selectedSlot.time_range}`
     : slotsLoaded ? 'Согласуем при подтверждении' : 'Загружаем расписание…'
+
+  const hasSlots = allSlots.length > 0
+  const openSlotSheet = () => { if (hasSlots) setSlotSheetOpen(true) }
 
   if (items.length === 0) {
     return (
@@ -127,9 +149,8 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
               <HugeiconsIcon icon={ShoppingBasket01Icon} size={28} color="#ffffff" />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 relative z-10">
+          <div className="grid grid-cols-2 gap-2 relative z-10">
             {[
-              { value: String(totalItems), label: 'Товаров' },
               { value: formatTotalWeight(items.map(i => ({ weight: i.product.weight, qty: i.qty }))), label: 'Вес' },
               { value: '20 мин', label: 'Доставка' },
             ].map((s) => (
@@ -152,7 +173,10 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
             <motion.div
               key={product.id}
               variants={itemVariants}
-              className="bg-card rounded-[20px] p-3 flex items-center gap-3"
+              onClick={() => onProductClick?.(product)}
+              role={onProductClick ? 'button' : undefined}
+              tabIndex={onProductClick ? 0 : undefined}
+              className="bg-card rounded-[20px] p-3 flex items-center gap-3 cursor-pointer select-none text-left"
             >
               <div className="w-[72px] h-[72px] rounded-[20px] overflow-hidden shrink-0 bg-muted">
                 <img src={product.imageSrc} alt={product.title} className="w-full h-full object-cover" />
@@ -164,9 +188,12 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
                   <span className="text-base font-bold" style={{ color: '#2e8b57' }}>
                     {product.price * qty} ₽
                   </span>
-                  <div className="flex items-center gap-2 rounded-full bg-muted px-1 py-1">
+                  <div
+                    className="flex items-center gap-2 rounded-full bg-muted px-1 py-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <motion.button
-                      onClick={() => onDecrement(product.id)}
+                      onClick={(e) => { e.stopPropagation(); onDecrement(product.id) }}
                       className="w-7 h-7 rounded-full bg-card flex items-center justify-center"
                       whileTap={{ scale: 0.82 }}
                       aria-label="Уменьшить"
@@ -175,7 +202,7 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
                     </motion.button>
                     <span className="min-w-[18px] text-center text-[14px] font-bold text-foreground">{qty}</span>
                     <motion.button
-                      onClick={() => onIncrement(product.id)}
+                      onClick={(e) => { e.stopPropagation(); onIncrement(product.id) }}
                       className="w-7 h-7 rounded-full bg-card flex items-center justify-center"
                       whileTap={{ scale: 0.82 }}
                       aria-label="Увеличить"
@@ -191,10 +218,12 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
 
         {/* Delivery slot */}
         <motion.button
+          onClick={openSlotSheet}
+          disabled={!hasSlots}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.2 }}
-          whileTap={{ scale: 0.97 }}
+          whileTap={hasSlots ? { scale: 0.97 } : undefined}
           className="w-full rounded-[28px] p-5 flex items-center justify-between gap-4 text-left"
           style={{ background: 'linear-gradient(135deg, #0b7a43 0%, #2e8b57 100%)' }}
         >
@@ -202,11 +231,11 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
             <p className="text-[13px] font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.72)' }}>Ближайший слот</p>
             <h3 className="text-[19px] font-bold text-white tracking-tighter mb-2">{slotTitle}</h3>
             <p className="text-[14px] font-medium" style={{ color: 'rgba(255,255,255,0.80)' }}>
-              {nearestSlot ? 'Доставка по выбранному адресу' : 'Слот выберете при оформлении'}
+              {hasSlots ? 'Нажмите, чтобы выбрать другое время' : 'Слот выберете при оформлении'}
             </p>
           </div>
           <div className="shrink-0 rounded-[18px] px-4 py-2.5 text-sm font-bold text-white" style={{ background: 'rgba(255,255,255,0.14)' }}>
-            {nearestSlot ? 'К оформлению' : '—'}
+            {hasSlots ? 'Изменить' : '—'}
           </div>
         </motion.button>
 
@@ -222,6 +251,10 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
             <p className="text-[15px] font-medium text-muted-foreground mt-1">Проверьте заказ перед оформлением</p>
           </div>
 
+          <div className="flex items-center justify-between">
+            <span className="text-[15px] font-medium text-muted-foreground">Товаров</span>
+            <span className="text-[15px] font-bold text-foreground">{totalItems} шт</span>
+          </div>
           <div className="flex items-center justify-between">
             <span className="text-[15px] font-medium text-muted-foreground">Подытог</span>
             <span className="text-[15px] font-bold text-foreground">{subtotal} ₽</span>
@@ -247,6 +280,81 @@ export default function CartPage({ items, onIncrement, onDecrement, onCheckout }
           </motion.button>
         </motion.section>
       </div>
+
+      {/* Bottom sheet: выбор слота */}
+      {createPortal(
+        <AnimatePresence>
+          {slotSheetOpen && (
+            <>
+              <motion.div
+                key="slot-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setSlotSheetOpen(false)}
+                className="fixed inset-0 bg-black/40"
+                style={{ zIndex: 150 }}
+              />
+              <motion.div
+                key="slot-sheet"
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+                className="fixed left-0 right-0 bottom-0 bg-card rounded-t-[28px] flex flex-col"
+                style={{ zIndex: 151, maxHeight: '80vh' }}
+              >
+                {/* drag handle */}
+                <div className="pt-3 pb-1 flex items-center justify-center">
+                  <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+                </div>
+
+                <div className="px-5 pt-2 pb-3 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <HugeiconsIcon icon={Calendar03Icon} size={20} color="#09090b" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[18px] font-bold text-foreground tracking-tighter">Выберите слот</h3>
+                    <p className="text-[13px] font-medium text-muted-foreground">Доступные окна доставки</p>
+                  </div>
+                </div>
+
+                <div className="px-3 pb-6 overflow-y-auto flex flex-col gap-2">
+                  {allSlots.map((slot) => {
+                    const active = selectedSlot?.id === slot.id
+                    return (
+                      <motion.button
+                        key={slot.id}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => { setSelectedSlot(slot); setSlotSheetOpen(false) }}
+                        className="w-full rounded-[18px] px-4 py-3.5 flex items-center justify-between gap-3 text-left transition-colors"
+                        style={{
+                          background: active ? 'rgba(46,139,87,0.10)' : '#f4f4f5',
+                          border: `1.5px solid ${active ? '#2e8b57' : 'transparent'}`,
+                        }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-bold text-foreground tracking-tight">
+                            {formatSlotDate(slot.date)}
+                          </p>
+                          <p className="text-[13px] font-medium text-muted-foreground mt-0.5">
+                            {slot.time_range}
+                          </p>
+                        </div>
+                        {active && (
+                          <HugeiconsIcon icon={CheckmarkCircle02Icon} size={22} color="#2e8b57" />
+                        )}
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   )
 }

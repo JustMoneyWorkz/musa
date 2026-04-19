@@ -18,10 +18,13 @@ interface OrdersPageProps {
 // delivered         → blue  (completed)
 // cancelled         → orange (paused/cancelled)
 
+// Гранулярные лейблы — каждое изменение статуса админом сразу видно пользователю
+// (раньше confirmed/assembling/delivering все показывались как "Активный" — пропадал
+// сигнал что статус продвинулся).
 const STATUS_LABEL: Record<Order['status'], string> = {
   pending:    'Ожидает',
-  confirmed:  'Активный',
-  assembling: 'Активный',
+  confirmed:  'Подтверждён',
+  assembling: 'Собирается',
   delivering: 'В пути',
   delivered:  'Доставлен',
   cancelled:  'Отменён',
@@ -66,10 +69,12 @@ const itemVariants = {
 export { STATUS_LABEL, STATUS_COLOR, STATUS_BG }
 
 export default function OrdersPage({ onClose, orders, loading, onRefresh, onOrderClick }: OrdersPageProps) {
-  // Auto-refresh on mount — чтобы пользователь видел актуальный статус сразу при открытии,
-  // без pull-to-refresh (статус мог быть обновлён админом пока страница была закрыта)
+  // Auto-refresh on mount + polling — пока пользователь на странице заказов, тянем
+  // свежие статусы каждые 10с (админ мог сменить статус с другого устройства).
   useEffect(() => {
     onRefresh()
+    const id = setInterval(onRefresh, 10000)
+    return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
